@@ -2,77 +2,143 @@ class Chip65C02 {
 
 	// Nested classes
 	interface AddressingMode {
-		public void getAddress(Chip65C02 thisChip);
+		public void calcAddress(Chip65C02 thisChip);
+		public int readValue(Chip65C02 thisChip);
+		public void writeValue(Chip65C02 thisChip, int value);
 	}
 
 	static class Implied implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			System.out.println("Implied addressing mode.");
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return 0;
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			// Nothing
 		}
 	}
 
 	static class Accumulator implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			System.out.println("Accumulator addressing mode.");
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.a);
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.a = to8b(value);
 		}
 	}
 
 	static class Immediate implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = c.pc;
 			c.incPC();
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
 		}
 	}
 
 	static class Zeropage implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = to8b(c.mapper.read(c.pc));
 			c.incPC();
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
 		}
 	}
 
 	static class ZeropageX implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = to8b(to8b(c.mapper.read(c.pc)) + c.x);
 			c.incPC();
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
 		}
 	}
 
 	static class ZeropageY implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = to8b(to8b(c.mapper.read(c.pc)) + c.y);
 			c.incPC();
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
 		}
 	}
 
 	static class Relative implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			// Signed relative address
 			c.address = toS16b(to8b(c.mapper.read(c.pc)));
 			c.incPC();
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return c.address;
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			// Nothing
 		}
 	}
 
 	static class Absolute implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = to8b(c.mapper.read(c.pc));
 			c.incPC();
 			c.address |= toHI(c.mapper.read(c.pc));
 			c.incPC();
 		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
 	}
 
 	static class AbsoluteX implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = to8b(c.mapper.read(c.pc));
 			c.incPC();
 			c.address |= toHI(c.mapper.read(c.pc));
@@ -84,11 +150,19 @@ class Chip65C02 {
 
 			if (firstpage != lastpage) c.penaltyADDR = true;
 		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
 	}
 
 	static class AbsoluteY implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			c.address = to8b(c.mapper.read(c.pc));
 			c.incPC();
 			c.address |= toHI(c.mapper.read(c.pc));
@@ -100,11 +174,19 @@ class Chip65C02 {
 			
 			if (firstpage != lastpage) c.penaltyADDR = true;
 		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
 	}
 
 	static class Indirect implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			int a1 = to8b(c.mapper.read(c.pc));
 			c.incPC();
 			a1 |= toHI(c.mapper.read(c.pc));
@@ -115,21 +197,39 @@ class Chip65C02 {
 
 			c.address = to8b(c.mapper.read(a1)) | toHI(c.mapper.read(a2));
 		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
 	}
 
 	static class IndirectX implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			int a1 = to8b(c.mapper.read(c.pc)) + c.x;
 			c.incPC();
 			
-			c.address = to8b(c.mapper.read(to8b(a1))) | toHI(c.mapper.read(to8b(a1 + 1)));
+			c.address =
+				to8b(c.mapper.read(to8b(a1))) |
+				toHI(c.mapper.read(to8b(a1 + 1)));
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
 		}
 	}
 
 	static class IndirectY implements AddressingMode {
 		@Override
-		public void getAddress(Chip65C02 c) {
+		public void calcAddress(Chip65C02 c) {
 			int a1 = to8b(c.mapper.read(c.pc));
 			c.incPC();
 			int a2 = to8b(a1 + 1);
@@ -141,18 +241,26 @@ class Chip65C02 {
 
 			if (firstpage != lastpage) c.penaltyADDR = true;
 		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
 	}
 
 	interface OPcode {
-		public void execute(Chip65C02 thisChip);
+		public void execute(Chip65C02 thisChip, AddressingMode mode);
 	}
 
 	static class ADC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.a + value;
 			
 			if (c.getCarry()) result++;
@@ -180,10 +288,10 @@ class Chip65C02 {
 
 	static class AND implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.a & value;
 
 			c.updateZero(result);
@@ -195,27 +303,27 @@ class Chip65C02 {
 
 	static class ASL implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			// c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = value << 1;
 
 			c.updateCarry(result);
 			c.updateZero(result);
 			c.updateSign(result);
 
-			c.mapper.write(c.address, to8b(result));
+			m.writeValue(c, result);
 			// c.a = to8b(result);
 		}
 	}
 
 	static class BCC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getCarry()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -225,10 +333,10 @@ class Chip65C02 {
 
 	static class BCS implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getCarry()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -238,10 +346,10 @@ class Chip65C02 {
 
 	static class BEQ implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getZero()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -251,8 +359,8 @@ class Chip65C02 {
 
 	static class BIT implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
-			int value = to8b(c.mapper.read(c.address));
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
 			int result = c.a & value;
 
 			c.updateZero(result);
@@ -263,10 +371,10 @@ class Chip65C02 {
 
 	static class BMI implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getSign()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -276,10 +384,10 @@ class Chip65C02 {
 
 	static class BNE implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getZero()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -289,10 +397,10 @@ class Chip65C02 {
 
 	static class BPL implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getSign()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -302,7 +410,7 @@ class Chip65C02 {
 
 	static class BRK implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			System.out.printf("Starting breakInterrupt sequence!\n");
 			c.incPC();
 			c.push(getHItoLO(c.pc));
@@ -318,10 +426,10 @@ class Chip65C02 {
 
 	static class BVC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getOverflow()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -331,10 +439,10 @@ class Chip65C02 {
 
 	static class BVS implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getOverflow()) {
 				int oldpc = c.pc;
-				c.pc += c.address;
+				c.pc += m.readValue(c);
 				if (getHI(oldpc) != getHI(c.pc))
 					c.clockCycles++;
 				c.clockCycles++;
@@ -344,37 +452,37 @@ class Chip65C02 {
 
 	static class CLC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setCarry(false);
 		}
 	}
 
 	static class CLD implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setDecimal(false);
 		}
 	}
 
 	static class CLI implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setInterrupt(false);
 		}
 	}
 
 	static class CLV implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setOverflow(false);
 		}
 	}
 
 	static class CMP implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.a - value;
 
 			c.setCarry(c.a >= value);
@@ -385,9 +493,9 @@ class Chip65C02 {
 
 	static class CPX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			// c.penaltyOP = true;
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.x - value;
 
 			c.setCarry(c.x >= value);
@@ -398,9 +506,9 @@ class Chip65C02 {
 
 	static class CPY implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			// c.penaltyOP = true;
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.y - value;
 
 			c.setCarry(c.y >= value);
@@ -411,20 +519,20 @@ class Chip65C02 {
 
 	static class DEC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
-			int value = to8b(c.mapper.read(c.address));
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
 			int result = value - 1;
 
 			c.updateZero(result);
 			c.updateSign(result);
 
-			c.mapper.write(c.address, to8b(result));
+			m.writeValue(c, result);
 		}
 	}
 
 	static class DEX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			int result = to8b(c.x - 1);
 
 			c.updateZero(result);
@@ -436,7 +544,7 @@ class Chip65C02 {
 
 	static class DEY implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			int result = to8b(c.y - 1);
 
 			c.updateZero(result);
@@ -448,10 +556,10 @@ class Chip65C02 {
 
 	static class EOR implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.a ^ value;
 
 			c.updateZero(result);
@@ -463,20 +571,20 @@ class Chip65C02 {
 
 	static class INC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
-			int value = to8b(c.mapper.read(c.address));
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
 			int result = value + 1;
 
 			c.updateZero(result);
 			c.updateSign(result);
 
-			c.mapper.write(c.address, to8b(result));
+			m.writeValue(c, result);
 		}
 	}
 
 	static class INX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			int result = to8b(c.x + 1);
 
 			c.updateZero(result);
@@ -488,7 +596,7 @@ class Chip65C02 {
 
 	static class INY implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			int result = to8b(c.y + 1);
 
 			c.updateZero(result);
@@ -500,14 +608,14 @@ class Chip65C02 {
 
 	static class JMP implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.pc = c.address;
 		}
 	}
 
 	static class JSR implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			int value = toU16b(c.pc - 1);
 			c.push(getHItoLO(value));
 			c.push(to8b(value));
@@ -517,9 +625,9 @@ class Chip65C02 {
 
 	static class LDA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 
 			c.updateSign(value);
 			c.updateZero(value);
@@ -530,9 +638,9 @@ class Chip65C02 {
 
 	static class LDX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 
 			c.updateSign(value);
 			c.updateZero(value);
@@ -543,9 +651,9 @@ class Chip65C02 {
 
 	static class LDY implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 
 			c.updateSign(value);
 			c.updateZero(value);
@@ -556,24 +664,24 @@ class Chip65C02 {
 
 	static class LSR implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			// c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = value >> 1;
 
 			c.setCarry((value & 1) != 0);
 			c.updateZero(result);
 			c.updateSign(result);
 
-			c.mapper.write(c.address, to8b(result));
+			m.writeValue(c, result);
 			// c.a = to8b(result);
 		}
 	}
 
 	static class NOP implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 			if (
 				c.opcode == 0x02 ||
@@ -599,10 +707,10 @@ class Chip65C02 {
 
 	static class ORA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = c.a | value;
 
 			c.updateZero(result);
@@ -614,21 +722,21 @@ class Chip65C02 {
 
 	static class PHA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.push(c.a);
 		}
 	}
 
 	static class PHP implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.push(c.status | FLAG_B | FLAG_U);
 		}
 	}
 
 	static class PLA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.a = c.pull();
 
 			c.updateZero(c.a);
@@ -638,17 +746,17 @@ class Chip65C02 {
 
 	static class PLP implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.status = c.pull() | FLAG_U;
 		}
 	}
 
 	static class ROL implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			// c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = value << 1;
 			if (c.getCarry()) result |= 1;
 
@@ -656,17 +764,17 @@ class Chip65C02 {
 			c.updateZero(result);
 			c.updateSign(result);
 
-			c.mapper.write(c.address, to8b(result));
+			m.writeValue(c, result);
 			// c.a = to8b(result);
 		}
 	}
 
 	static class ROR implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			// c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = value >> 1;
 			if (c.getCarry()) result |= 0b1000_0000;
 
@@ -674,14 +782,14 @@ class Chip65C02 {
 			c.updateZero(result);
 			c.updateSign(result);
 
-			c.mapper.write(c.address, to8b(result));
+			m.writeValue(c, result);
 			// c.a = to8b(result);
 		}
 	}
 
 	static class RTI implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.status = c.pull();
 			c.pc = c.pull() | toHI(c.pull());
 			c.setInterrupt(false);
@@ -691,7 +799,7 @@ class Chip65C02 {
 
 	static class RTS implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.pc = c.pull() | toHI(c.pull());
 			c.incPC();
 		}
@@ -699,10 +807,10 @@ class Chip65C02 {
 
 	static class SBC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 
-			int value = to8b(c.mapper.read(c.address));
+			int value = m.readValue(c);
 			int result = to8b(c.a - value);
 			
 			if (!c.getCarry()) result++;
@@ -731,49 +839,49 @@ class Chip65C02 {
 
 	static class SEC implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setCarry(true);
 		}
 	}
 
 	static class SED implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setDecimal(true);
 		}
 	}
 
 	static class SEI implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.setInterrupt(true);
 		}
 	}
 
 	static class STA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
-			c.mapper.write(c.address, to8b(c.a));
+		public void execute(Chip65C02 c, AddressingMode m) {
+			m.writeValue(c, c.a);
 		}
 	}
 
 	static class STX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
-			c.mapper.write(c.address, to8b(c.x));
+		public void execute(Chip65C02 c, AddressingMode m) {
+			m.writeValue(c, c.x);
 		}
 	}
 
 	static class STY implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
-			c.mapper.write(c.address, to8b(c.y));
+		public void execute(Chip65C02 c, AddressingMode m) {
+			m.writeValue(c, c.y);
 		}
 	}
 
 	static class TAX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.x = c.a;
 
 			c.updateZero(c.x);
@@ -783,7 +891,7 @@ class Chip65C02 {
 
 	static class TAY implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.y = c.a;
 
 			c.updateZero(c.y);
@@ -793,7 +901,7 @@ class Chip65C02 {
 
 	static class TSX implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.x = c.sp;
 
 			c.updateZero(c.x);
@@ -803,7 +911,7 @@ class Chip65C02 {
 
 	static class TXA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.a = c.x;
 
 			c.updateZero(c.a);
@@ -813,14 +921,14 @@ class Chip65C02 {
 
 	static class TXS implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.sp = c.x;
 		}
 	}
 
 	static class TYA implements OPcode {
 		@Override
-		public void execute(Chip65C02 c) {
+		public void execute(Chip65C02 c, AddressingMode m) {
 			c.a = c.y;
 
 			c.updateZero(c.a);
@@ -854,7 +962,8 @@ class Chip65C02 {
 	private boolean ready, sync;
 
 	// Other variables
-	private int opcode, address, clockCycles;
+	private int opcode, clockCycles;
+	private int address;
 	private boolean penaltyOP, penaltyADDR;
 
 	// Handle IO
@@ -1000,8 +1109,10 @@ class Chip65C02 {
 		incPC();
 		System.out.printf("OPcode = 0x%02X\n", opcode);
 
-		modes[opcode].getAddress(this);
-		codes[opcode].execute(this);
+		// modes[opcode].getAddress(this);
+		AddressingMode a = modes[opcode];
+		a.calcAddress(this);
+		codes[opcode].execute(this, modes[opcode]);
 
 		clockCycles = delays[opcode];
 
