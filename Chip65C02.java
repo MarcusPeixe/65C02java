@@ -7,10 +7,12 @@ class Chip65C02 {
 		public void writeValue(Chip65C02 thisChip, int value);
 	}
 
-	static class Implied implements AddressingMode {
+	// IMPLIED
+	static class Impl implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			System.out.println("Implied addressing mode.");
+			if (c.debug)
+				System.out.println("Implied addressing mode.");
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
@@ -22,10 +24,12 @@ class Chip65C02 {
 		}
 	}
 
-	static class Accumulator implements AddressingMode {
+	// ACCUMULATOR
+	static class Accu implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			System.out.println("Accumulator addressing mode.");
+			if (c.debug)
+				System.out.println("Accu addressing mode.");
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
@@ -37,7 +41,8 @@ class Chip65C02 {
 		}
 	}
 
-	static class Immediate implements AddressingMode {
+	// IMMEDIATE
+	static class Imme implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
 			c.address = c.pc;
@@ -45,7 +50,7 @@ class Chip65C02 {
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -53,15 +58,16 @@ class Chip65C02 {
 		}
 	}
 
-	static class Zeropage implements AddressingMode {
+	// ZERO PAGE
+	static class Zrpg implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			c.address = to8b(c.mapper.read(c.pc));
+			c.address = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -69,15 +75,16 @@ class Chip65C02 {
 		}
 	}
 
-	static class ZeropageX implements AddressingMode {
+	// ZERO PAGE, X
+	static class ZrpX implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			c.address = to8b(to8b(c.mapper.read(c.pc)) + c.x);
+			c.address = to8b(to8b(c.mapper.read(c.pc, false)) + c.x);
 			c.incPC();
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -85,15 +92,16 @@ class Chip65C02 {
 		}
 	}
 
-	static class ZeropageY implements AddressingMode {
+	// ZERO PAGE, Y
+	static class ZrpY implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			c.address = to8b(to8b(c.mapper.read(c.pc)) + c.y);
+			c.address = to8b(to8b(c.mapper.read(c.pc, false)) + c.y);
 			c.incPC();
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -101,11 +109,12 @@ class Chip65C02 {
 		}
 	}
 
-	static class Relative implements AddressingMode {
+	// RELATIVE BRANCH
+	static class Rltv implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			// Signed relative address
-			c.address = toS16b(to8b(c.mapper.read(c.pc)));
+			// Signed Rltv address
+			c.address = toS16b(to8b(c.mapper.read(c.pc, false)));
 			c.incPC();
 		}
 		@Override
@@ -118,17 +127,37 @@ class Chip65C02 {
 		}
 	}
 
-	static class Absolute implements AddressingMode {
+	// ZERO PAGE AND RELATIVE BRANCH
+	static class ZRel implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			c.address = to8b(c.mapper.read(c.pc));
+			c.address = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
-			c.address |= toHI(c.mapper.read(c.pc));
+			c.address |= toHI(c.mapper.read(c.pc, false));
 			c.incPC();
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return c.address;
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			// Nothing
+		}
+	}
+
+	// ABSOLUTE
+	static class Abso implements AddressingMode {
+		@Override
+		public void calcAddress(Chip65C02 c) {
+			c.address = to8b(c.mapper.read(c.pc, false));
+			c.incPC();
+			c.address |= toHI(c.mapper.read(c.pc, false));
+			c.incPC();
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -136,12 +165,13 @@ class Chip65C02 {
 		}
 	}
 
-	static class AbsoluteX implements AddressingMode {
+	// ABSOLUTE, X
+	static class AbsX implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			c.address = to8b(c.mapper.read(c.pc));
+			c.address = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
-			c.address |= toHI(c.mapper.read(c.pc));
+			c.address |= toHI(c.mapper.read(c.pc, false));
 			c.incPC();
 			
 			int firstpage = getHI(c.address);
@@ -152,7 +182,7 @@ class Chip65C02 {
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -160,12 +190,13 @@ class Chip65C02 {
 		}
 	}
 
-	static class AbsoluteY implements AddressingMode {
+	// ABSOLUTE, Y
+	static class AbsY implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			c.address = to8b(c.mapper.read(c.pc));
+			c.address = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
-			c.address |= toHI(c.mapper.read(c.pc));
+			c.address |= toHI(c.mapper.read(c.pc, false));
 			c.incPC();
 			
 			int firstpage = getHI(c.address);
@@ -176,7 +207,7 @@ class Chip65C02 {
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -184,22 +215,23 @@ class Chip65C02 {
 		}
 	}
 
-	static class Indirect implements AddressingMode {
+	// INDIRECT
+	static class Indr implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			int a1 = to8b(c.mapper.read(c.pc));
+			int a1 = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
-			a1 |= toHI(c.mapper.read(c.pc));
+			a1 |= toHI(c.mapper.read(c.pc, false));
 			c.incPC();
 			// Page wrap bug
 			// int a2 = to8b(a1 + 1) | toHI(a1);
 			int a2 = toU16b(a1 + 1);
 
-			c.address = to8b(c.mapper.read(a1)) | toHI(c.mapper.read(a2));
+			c.address = to8b(c.mapper.read(a1, false)) | toHI(c.mapper.read(a2, false));
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -207,19 +239,44 @@ class Chip65C02 {
 		}
 	}
 
-	static class IndirectX implements AddressingMode {
+	// ZERO PAGE INDIRECT
+	static class ZpIn implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			int a1 = to8b(c.mapper.read(c.pc)) + c.x;
+			int a1 = to8b(c.mapper.read(c.pc, false));
+			c.incPC();
+			// a1 |= toHI(c.mapper.read(c.pc, false));
+			// c.incPC();
+			// Page wrap bug
+			// int a2 = to8b(a1 + 1) | toHI(a1);
+			int a2 = toU16b(a1 + 1);
+
+			c.address = to8b(c.mapper.read(a1, false)) | toHI(c.mapper.read(a2, false));
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address, false));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
+	}
+
+	// ZERO PAGE INDEXED INDIRECT
+	static class IndX implements AddressingMode {
+		@Override
+		public void calcAddress(Chip65C02 c) {
+			int a1 = to8b(c.mapper.read(c.pc, false) + c.x);
 			c.incPC();
 			
 			c.address =
-				to8b(c.mapper.read(to8b(a1))) |
-				toHI(c.mapper.read(to8b(a1 + 1)));
+				to8b(c.mapper.read(to8b(a1), false)) |
+				toHI(c.mapper.read(to8b(a1 + 1), false));
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -227,14 +284,15 @@ class Chip65C02 {
 		}
 	}
 
-	static class IndirectY implements AddressingMode {
+	// ZERO PAGE INDIRECT INDEXED
+	static class IndY implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			int a1 = to8b(c.mapper.read(c.pc));
+			int a1 = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
 			int a2 = to8b(a1 + 1);
 			
-			c.address = to8b(c.mapper.read(to8b(a1))) | toHI(c.mapper.read(a2));
+			c.address = to8b(c.mapper.read(to8b(a1), false)) | toHI(c.mapper.read(a2, false));
 			int firstpage = getHI(c.address);
 			c.address = toU16b(c.address + c.y);
 			int lastpage = getHI(c.address);
@@ -243,7 +301,35 @@ class Chip65C02 {
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
-			return to8b(c.mapper.read(c.address));
+			return to8b(c.mapper.read(c.address, false));
+		}
+		@Override
+		public void writeValue(Chip65C02 c, int value) {
+			c.mapper.write(c.address, to8b(value));
+		}
+	}
+
+	// ABSOLUTE INDEXED INDIRECT
+	static class AbIX implements AddressingMode {
+		@Override
+		public void calcAddress(Chip65C02 c) {
+			// int a1 = to8b(c.mapper.read(c.pc, false)) + c.x;
+			// c.incPC();
+
+			int a1 = to8b(c.mapper.read(c.pc, false));
+			c.incPC();
+			a1 |= toHI(c.mapper.read(c.pc, false));
+			c.incPC();
+			
+			a1 += c.x;
+
+			c.address =
+				to8b(c.mapper.read(toU16b(a1), false)) |
+				toHI(c.mapper.read(toU16b(a1 + 1), false));
+		}
+		@Override
+		public int readValue(Chip65C02 c) {
+			return to8b(c.mapper.read(c.address, false));
 		}
 		@Override
 		public void writeValue(Chip65C02 c, int value) {
@@ -265,10 +351,8 @@ class Chip65C02 {
 			
 			if (c.getCarry()) result++;
 
-			c.updateCarry(result);
-			c.updateZero(result);
 			c.updateOverflow(result, c.a, value);
-			c.updateSign(result);
+			c.updateCarry(result);
 
 			if (c.getDecimal()) {
 				c.setCarry(false);
@@ -282,6 +366,9 @@ class Chip65C02 {
 				c.clockCycles++;
 			}
 
+			c.updateZero(result);
+			c.updateSign(result);
+			c.setSign(false);
 			c.a = to8b(result);
 		}
 	}
@@ -315,6 +402,278 @@ class Chip65C02 {
 
 			m.writeValue(c, result);
 			// c.a = to8b(result);
+		}
+	}
+
+	static class BBR0 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_0001) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR1 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_0010) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR2 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_0100) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR3 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_1000) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR4 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0001_0000) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR5 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0010_0000) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR6 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0100_0000) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBR7 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b1000_0000) == 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS0 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_0001) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS1 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_0010) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS2 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_0100) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS3 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0000_1000) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS4 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0001_0000) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS5 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0010_0000) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS6 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b0100_0000) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
+		}
+	}
+
+	static class BBS7 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int values = m.readValue(c);
+			int zpAddr = to8b(values);
+			int rel = getHItoLO(values);
+			int zpValue = c.mapper.read(zpAddr, false);
+			if ((zpValue & 0b1000_0000) != 0) {
+				int oldpc = c.pc;
+				c.pc += rel;
+				// if (getHI(oldpc) != getHI(c.pc))
+				// 	c.clockCycles++;
+				// c.clockCycles++;
+			}
 		}
 	}
 
@@ -408,19 +767,34 @@ class Chip65C02 {
 		}
 	}
 
+	static class BRA implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int oldpc = c.pc;
+			c.pc += m.readValue(c);
+			if (getHI(oldpc) != getHI(c.pc))
+				c.clockCycles++;
+			c.clockCycles++;
+		}
+	}
+
 	static class BRK implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			System.out.printf("Starting breakInterrupt sequence!\n");
-			c.incPC();
-			c.push(getHItoLO(c.pc));
-			c.push(to8b(c.pc));
-			c.push(c.status | FLAG_B);
-			c.setInterrupt(true);
-			c.mapper.onVectorPull(IRQ_VECTOR);
-			int vector = to8b(c.mapper.read(IRQ_VECTOR));
-			vector |= toHI(c.mapper.read(IRQ_VECTOR + 1));
-			c.pc = vector;
+			// c.incPC();
+			if (!c.getInterrupt()) {
+				if (c.debug)
+					System.out.printf("Starting breakInterrupt sequence!\n");
+				c.push(getHItoLO(c.pc));
+				c.push(to8b(c.pc));
+				c.status &= ~FLAG_D;
+				c.push(c.status | FLAG_B);
+				c.setInterrupt(true);
+				c.mapper.onVectorPull(IRQ_VECTOR);
+				int vector = to8b(c.mapper.read(IRQ_VECTOR, false));
+				vector |= toHI(c.mapper.read(IRQ_VECTOR + 1, false));
+				c.pc = vector;
+			}
 		}
 	}
 
@@ -684,23 +1058,23 @@ class Chip65C02 {
 		public void execute(Chip65C02 c, AddressingMode m) {
 			c.penaltyOP = true;
 			if (
-				c.opcode == 0x02 ||
-				c.opcode == 0x22 ||
-				c.opcode == 0x42 ||
-				c.opcode == 0x62 ||
-				c.opcode == 0x82 ||
-				c.opcode == 0xC2 ||
-				c.opcode == 0xE2 ||
+				(c.opcode & 0x07) == 3
+			) c.pc = toU16b(c.pc + 0);
+
+			if (
+				(c.opcode & 0x1F) == 2 ||
 				c.opcode == 0x44 ||
 				c.opcode == 0x54 ||
 				c.opcode == 0xD4 ||
 				c.opcode == 0xF4
-			) c.incPC();
-			else if (
+			) c.pc = toU16b(c.pc + 1);
+
+			if (
 				c.opcode == 0x5C ||
 				c.opcode == 0xDC ||
-				c.opcode == 0xFC
+				c.opcode == 0xFC 
 			) c.pc = toU16b(c.pc + 2);
+
 			else c.penaltyOP = false;
 		}
 	}
@@ -727,6 +1101,20 @@ class Chip65C02 {
 		}
 	}
 
+	static class PHX implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			c.push(c.x);
+		}
+	}
+
+	static class PHY implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			c.push(c.y);
+		}
+	}
+
 	static class PHP implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
@@ -744,10 +1132,102 @@ class Chip65C02 {
 		}
 	}
 
+	static class PLX implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			c.x = c.pull();
+
+			c.updateZero(c.x);
+			c.updateSign(c.x);
+		}
+	}
+
+	static class PLY implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			c.y = c.pull();
+
+			c.updateZero(c.y);
+			c.updateSign(c.y);
+		}
+	}
+
 	static class PLP implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			c.status = c.pull() | FLAG_U;
+		}
+	}
+
+	static class RMB0 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1111_1110;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB1 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1111_1101;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB2 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1111_1011;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB3 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1111_0111;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB4 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1110_1111;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB5 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1101_1111;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB6 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b1011_1111;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class RMB7 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value & 0b0111_1111;
+			m.writeValue(c, value);
 		}
 	}
 
@@ -858,10 +1338,89 @@ class Chip65C02 {
 		}
 	}
 
+	static class SMB0 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0000_0001;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB1 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0000_0010;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB2 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0000_0100;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB3 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0000_1000;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB4 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0001_0000;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB5 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0010_0000;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB6 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b0100_0000;
+			m.writeValue(c, value);
+		}
+	}
+
+	static class SMB7 implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			value = value | 0b1000_0000;
+			m.writeValue(c, value);
+		}
+	}
+
 	static class STA implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			m.writeValue(c, c.a);
+		}
+	}
+
+	static class STP implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			c.setReady(false);
 		}
 	}
 
@@ -876,6 +1435,13 @@ class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			m.writeValue(c, c.y);
+		}
+	}
+
+	static class STZ implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			m.writeValue(c, 0);
 		}
 	}
 
@@ -896,6 +1462,30 @@ class Chip65C02 {
 
 			c.updateZero(c.y);
 			c.updateSign(c.y);
+		}
+	}
+
+	static class TRB implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			int result = c.a & value;
+			int result2 = ~c.a & value;
+
+			c.updateZero(result);
+			m.writeValue(c, result2);
+		}
+	}
+
+	static class TSB implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			int value = m.readValue(c);
+			int result = c.a & value;
+			int result2 = c.a | value;
+
+			c.updateZero(result);
+			m.writeValue(c, result2);
 		}
 	}
 
@@ -936,6 +1526,14 @@ class Chip65C02 {
 		}
 	}
 
+	static class WAI implements OPcode {
+		@Override
+		public void execute(Chip65C02 c, AddressingMode m) {
+			// c.setReady(false);
+			c.pc = toU16b(c.pc - 1);
+		}
+	}
+
 	// Constants
 	private static final int FLAG_C = 0b0000_0001;
 	private static final int FLAG_Z = 0b0000_0010;
@@ -959,12 +1557,13 @@ class Chip65C02 {
 
 	// Pins
 	private boolean interruptRequest, nonMaskableInterrupt, reset;
-	private boolean ready, sync;
+	private boolean ready;
 
 	// Other variables
 	private int opcode, clockCycles;
 	private int address;
 	private boolean penaltyOP, penaltyADDR;
+	private boolean debug;
 
 	// Handle IO
 	private Mapper mapper;
@@ -974,15 +1573,14 @@ class Chip65C02 {
 		this.mapper = mapper;
 		ready = false;
 		reset = true;
-		sync = false;
 		interruptRequest = false;
 		nonMaskableInterrupt = false;
 		a = 0;
 		x = 0;
 		y = 0;
-		status = 0b00110100;
+		status = 0b00110000;
 		sp = 0xFF;
-		pc = 0;
+		pc = 0x0400;
 	}
 
 	// Numbers
@@ -997,7 +1595,7 @@ class Chip65C02 {
 
 	private int pull() {
 		sp = to8b(sp + 1);
-		return to8b(mapper.read(STACK_HI | sp));
+		return to8b(mapper.read(STACK_HI | sp, false));
 	}
 
 	// Getters and setters
@@ -1028,8 +1626,8 @@ class Chip65C02 {
 		this.ready = ready;
 	}
 
-	public boolean getSync() {
-		return sync;
+	public void setDebug(boolean debug) {
+		this.debug = debug;
 	}
 
 	// Methods
@@ -1046,68 +1644,79 @@ class Chip65C02 {
 		pc = toU16b(pc);
 		
 		if (!ready) {
-			System.out.printf("Not ready!\n");
+			if (debug)
+				System.out.printf("Not ready!\n");
 			return;
 		}
 		if (clockCycles > 1) {
-			sync = false;
 			clockCycles--;
-			System.out.printf("Clock cycles left = %d.\n", clockCycles);
+			if (debug)
+				System.out.printf("Clock cycles left = %d.\n", clockCycles);
 			return;
 		}
 
-		System.out.printf("	PC = $%04X / PS = $%02X / SP = $%02X\n", pc, status, sp);
-		System.out.printf("	ACC = $%02X / X = $%02X / Y = $%02X\n", a, x, y);
+		if (debug) {
+			System.out.printf("\n\n--== NEW INSTRUCTION FETCH ==--\n");
+			System.out.printf("	PC = $%04X / PS = $%02X / SP = $%02X\n", pc, status, sp);
+			System.out.printf("	ACC = $%02X / X = $%02X / Y = $%02X\n", a, x, y);
+			System.out.printf("	NV-B DIZC (PROCESSOR STATUS FLAGS)\n");
+			System.out.printf("	%s\n\n", asBinary(status, 8));
+		}
 
 		if (reset) {
-			System.out.printf("Starting reset sequence!\n");
+			if (debug)
+				System.out.printf("Starting reset sequence!\n");
 			setReset(false);
+			setReady(true);
 			clockCycles = 7;
-			status = status & 0b1100_0011 | 0b00110100;
+			status = status & 0b1100_0011 | 0b00110000;
 			mapper.onVectorPull(RES_VECTOR);
-			int vector = to8b(mapper.read(RES_VECTOR));
-			vector |= toHI(mapper.read(RES_VECTOR + 1));
+			int vector = to8b(mapper.read(RES_VECTOR, false));
+			vector |= toHI(mapper.read(RES_VECTOR + 1, false));
 			pc = vector;
 			return;
 		}
 		if (interruptRequest) {
-			System.out.printf("Starting interruptRequest sequence!\n");
+			if (debug)
+				System.out.printf("Starting interruptRequest sequence!\n");
 			setInterruptRequest(false);
 			if (!getInterrupt()) {
-				incPC();
+				// incPC();
 				push(getHItoLO(pc));
 				push(to8b(pc));
 				push(status & ~FLAG_B);
 				setInterrupt(true);
 				mapper.onVectorPull(IRQ_VECTOR);
-				int vector = to8b(mapper.read(IRQ_VECTOR));
-				vector |= toHI(mapper.read(IRQ_VECTOR + 1));
+				int vector = to8b(mapper.read(IRQ_VECTOR, false));
+				vector |= toHI(mapper.read(IRQ_VECTOR + 1, false));
 				pc = vector;
 				return;
 			}
 		}
 		else if (nonMaskableInterrupt) {
-			System.out.printf("Starting nonMaskableInterrupt sequence!\n");
+			if (debug)
+				System.out.printf("Starting nonMaskableInterrupt sequence!\n");
 			setNonMaskableInterrupt(false);
 			incPC();
 			push(getHItoLO(pc));
 			push(to8b(pc));
 			push(status & ~FLAG_B);
 			mapper.onVectorPull(NMI_VECTOR);
-			int vector = to8b(mapper.read(IRQ_VECTOR));
-			vector |= toHI(mapper.read(IRQ_VECTOR + 1));
+			int vector = to8b(mapper.read(IRQ_VECTOR, false));
+			vector |= toHI(mapper.read(IRQ_VECTOR + 1, false));
 			pc = vector;
 			return;
 		}
 
-		System.out.printf("Fetching new instruction!\n");
-		sync = true;
+		if (debug)
+			System.out.printf("Fetching new instruction!\n");
 		penaltyOP = false;
 		penaltyADDR = false;
 
-		opcode = to8b(mapper.read(pc));
+		opcode = to8b(mapper.read(pc, true));
 		incPC();
-		System.out.printf("OPcode = 0x%02X\n", opcode);
+		if (debug)
+			System.out.printf("OPcode = 0x%02X\n", opcode);
 
 		// modes[opcode].getAddress(this);
 		AddressingMode a = modes[opcode];
@@ -1118,7 +1727,8 @@ class Chip65C02 {
 
 		if (penaltyADDR && penaltyOP) clockCycles++;
 
-		System.out.printf("Total delay = %d clock cycles!\n", clockCycles);
+		if (debug)
+			System.out.printf("Total delay = %d clock cycles!\n", clockCycles);
 	}
 
 	// Get and set flags
@@ -1228,81 +1838,256 @@ class Chip65C02 {
 		return to4b(value) << 4;
 	}
 
+	// Print as binary
+	private static String asBinary(int value, int bits) {
+		String result = "";
+		int mask = 1 << bits;
+		for (int i = 0; i < bits; i++) {
+			value <<= 1;
+			result += ((value & mask) != 0)? "1": "0";
+			if ((i & 3) == 3) result += " ";
+		}
+		return result;
+	}
+
 	// OP codes and addressing modes
 	private static final AddressingMode[] modes = {
-		new Implied(),   new IndirectX(), new Implied(),   new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Accumulator(), new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-		new Absolute(),  new IndirectX(), new Implied(),   new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Accumulator(), new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-		new Implied(),   new IndirectX(), new Implied(),   new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Accumulator(), new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-		new Implied(),   new IndirectX(), new Implied(),   new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Accumulator(), new Immediate(), new Indirect(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-		new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Implied(),     new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageY(), new ZeropageY(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteY(), new AbsoluteY(),
-		new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Implied(),     new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageY(), new ZeropageY(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteY(), new AbsoluteY(),
-		new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Implied(),     new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-		new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(),  new Zeropage(),  new Zeropage(),  new Zeropage(),  new Implied(), new Immediate(), new Implied(),     new Immediate(), new Absolute(),  new Absolute(),  new Absolute(),  new Absolute(),
-		new Relative(),  new IndirectY(), new Implied(),   new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new Implied(), new AbsoluteY(), new Implied(),     new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
+		new Impl(), new IndX(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Accu(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new Zrpg(), new ZrpX(), new ZrpX(), new Zrpg(), new Impl(), new AbsY(), new Accu(), new Impl(), new Abso(), new AbsX(), new AbsX(), new ZRel(),
+		new Abso(), new IndX(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Accu(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new ZrpX(), new ZrpX(), new ZrpX(), new Zrpg(), new Impl(), new AbsY(), new Accu(), new Impl(), new AbsX(), new AbsX(), new AbsX(), new ZRel(),
+		new Impl(), new IndX(), new Impl(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Accu(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new Impl(), new ZrpX(), new ZrpX(), new Zrpg(), new Impl(), new AbsY(), new Impl(), new Impl(), new Impl(), new AbsX(), new AbsX(), new ZRel(),
+		new Impl(), new IndX(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Accu(), new Impl(), new Indr(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new ZrpX(), new ZrpX(), new ZrpX(), new Zrpg(), new Impl(), new AbsY(), new Impl(), new Impl(), new AbIX(), new AbsX(), new AbsX(), new ZRel(),
+		new Rltv(), new IndX(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Impl(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new ZrpX(), new ZrpX(), new ZrpY(), new Zrpg(), new Impl(), new AbsY(), new Impl(), new Impl(), new Abso(), new AbsX(), new AbsX(), new ZRel(),
+		new Imme(), new IndX(), new Imme(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Impl(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new ZrpX(), new ZrpX(), new ZrpY(), new Zrpg(), new Impl(), new AbsY(), new Impl(), new Impl(), new AbsX(), new AbsX(), new AbsY(), new ZRel(),
+		new Imme(), new IndX(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Impl(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new Impl(), new ZrpX(), new ZrpX(), new Zrpg(), new Impl(), new AbsY(), new Impl(), new Impl(), new Impl(), new AbsX(), new AbsX(), new ZRel(),
+		new Imme(), new IndX(), new Impl(), new Impl(), new Zrpg(), new Zrpg(), new Zrpg(), new Zrpg(), new Impl(), new Imme(), new Impl(), new Impl(), new Abso(), new Abso(), new Abso(), new ZRel(),
+		new Rltv(), new IndY(), new ZpIn(), new Impl(), new Impl(), new ZrpX(), new ZrpX(), new Zrpg(), new Impl(), new AbsY(), new Impl(), new Impl(), new Impl(), new AbsX(), new AbsX(), new ZRel(),
 	};
-
-	// OP codes, addressing modes and clock cycles
-	// private static final AddressingMode[] modes = {
-	// 	null, new IndirectX(), null, new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-	// 	new Absolute(), new IndirectX(), null, new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-	// 	null, new IndirectX(), null, new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-	// 	null, new IndirectX(), null, new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Indirect(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-	// 	new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageY(), new ZeropageY(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteY(), new AbsoluteY(),
-	// 	new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageY(), new ZeropageY(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteY(), new AbsoluteY(),
-	// 	new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-	// 	new Immediate(), new IndirectX(), new Immediate(), new IndirectX(), new Zeropage(), new Zeropage(), new Zeropage(), new Zeropage(), null, new Immediate(), null, new Immediate(), new Absolute(), new Absolute(), new Absolute(), new Absolute(),
-	// 	new Relative(), new IndirectY(), null, new IndirectY(), new ZeropageX(), new ZeropageX(), new ZeropageX(), new ZeropageX(), null, new AbsoluteY(), null, new AbsoluteY(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(), new AbsoluteX(),
-	// };
 
 	private static final OPcode[] codes = {
-		new BRK(), new ORA(), new NOP(), new NOP(), new NOP(), new ORA(), new ASL(), new NOP(), new PHP(), new ORA(), new ASL(), new NOP(), new NOP(), new ORA(), new ASL(), new NOP(), 
-		new BPL(), new ORA(), new ORA(), new NOP(), new NOP(), new ORA(), new ASL(), new NOP(), new CLC(), new ORA(), new NOP(), new NOP(), new NOP(), new ORA(), new ASL(), new NOP(), 
-		new JSR(), new AND(), new NOP(), new NOP(), new BIT(), new AND(), new ROL(), new NOP(), new PLP(), new AND(), new ROL(), new NOP(), new BIT(), new AND(), new ROL(), new NOP(), 
-		new BMI(), new AND(), new AND(), new NOP(), new NOP(), new AND(), new ROL(), new NOP(), new SEC(), new AND(), new NOP(), new NOP(), new NOP(), new AND(), new ROL(), new NOP(), 
-		new RTI(), new EOR(), new NOP(), new NOP(), new NOP(), new EOR(), new LSR(), new NOP(), new PHA(), new EOR(), new LSR(), new NOP(), new JMP(), new EOR(), new LSR(), new NOP(), 
-		new BVC(), new EOR(), new EOR(), new NOP(), new NOP(), new EOR(), new LSR(), new NOP(), new CLI(), new EOR(), new NOP(), new NOP(), new NOP(), new EOR(), new LSR(), new NOP(), 
-		new RTS(), new ADC(), new NOP(), new NOP(), new NOP(), new ADC(), new ROR(), new NOP(), new PLA(), new ADC(), new ROR(), new NOP(), new JMP(), new ADC(), new ROR(), new NOP(), 
-		new BVS(), new ADC(), new ADC(), new NOP(), new NOP(), new ADC(), new ROR(), new NOP(), new SEI(), new ADC(), new NOP(), new NOP(), new NOP(), new ADC(), new ROR(), new NOP(), 
-		new NOP(), new STA(), new NOP(), new NOP(), new STY(), new STA(), new STX(), new NOP(), new DEY(), new NOP(), new TXA(), new NOP(), new STY(), new STA(), new STX(), new NOP(), 
-		new BCC(), new STA(), new STA(), new NOP(), new STY(), new STA(), new STX(), new NOP(), new TYA(), new STA(), new TXS(), new NOP(), new NOP(), new STA(), new NOP(), new NOP(), 
-		new LDY(), new LDA(), new LDX(), new NOP(), new LDY(), new LDA(), new LDX(), new NOP(), new TAY(), new LDA(), new TAX(), new NOP(), new LDY(), new LDA(), new LDX(), new NOP(), 
-		new BCS(), new LDA(), new LDA(), new NOP(), new LDY(), new LDA(), new LDX(), new NOP(), new CLV(), new LDA(), new TSX(), new NOP(), new LDY(), new LDA(), new LDX(), new NOP(), 
-		new CPY(), new CMP(), new NOP(), new NOP(), new CPY(), new CMP(), new DEC(), new NOP(), new INY(), new CMP(), new DEX(), new NOP(), new CPY(), new CMP(), new DEC(), new NOP(), 
-		new BNE(), new CMP(), new CMP(), new NOP(), new NOP(), new CMP(), new DEC(), new NOP(), new CLD(), new CMP(), new NOP(), new NOP(), new NOP(), new CMP(), new DEC(), new NOP(), 
-		new CPX(), new SBC(), new NOP(), new NOP(), new CPX(), new SBC(), new INC(), new NOP(), new INX(), new SBC(), new NOP(), new SBC(), new CPX(), new SBC(), new INC(), new NOP(), 
-		new BEQ(), new SBC(), new SBC(), new NOP(), new NOP(), new SBC(), new INC(), new NOP(), new SED(), new SBC(), new NOP(), new NOP(), new NOP(), new SBC(), new INC(), new NOP(),
+		new BRK(),  new ORA(),  new NOP(),  new NOP(),  new TSB(),  new ORA(),  new ASL(),  new RMB0(),  new PHP(),  new ORA(),  new ASL(),  new NOP(),  new TSB(),  new ORA(),  new ASL(),  new BBR0(),
+		new BPL(),  new ORA(),  new ORA(),  new NOP(),  new TRB(),  new ORA(),  new ASL(),  new RMB1(),  new CLC(),  new ORA(),  new INC(),  new NOP(),  new TRB(),  new ORA(),  new ASL(),  new BBR1(),
+		new JSR(),  new AND(),  new NOP(),  new NOP(),  new BIT(),  new AND(),  new ROL(),  new RMB2(),  new PLP(),  new AND(),  new ROL(),  new NOP(),  new BIT(),  new AND(),  new ROL(),  new BBR2(),
+		new BMI(),  new AND(),  new AND(),  new NOP(),  new BIT(),  new AND(),  new ROL(),  new RMB3(),  new SEC(),  new AND(),  new DEC(),  new NOP(),  new BIT(),  new AND(),  new ROL(),  new BBR3(),
+		new RTI(),  new EOR(),  new NOP(),  new NOP(),  new NOP(),  new EOR(),  new LSR(),  new RMB4(),  new PHA(),  new EOR(),  new LSR(),  new NOP(),  new JMP(),  new EOR(),  new LSR(),  new BBR4(),
+		new BVC(),  new EOR(),  new EOR(),  new NOP(),  new NOP(),  new EOR(),  new LSR(),  new RMB5(),  new CLI(),  new EOR(),  new PHY(),  new NOP(),  new NOP(),  new EOR(),  new LSR(),  new BBR5(),
+		new RTS(),  new ADC(),  new NOP(),  new NOP(),  new STZ(),  new ADC(),  new ROR(),  new RMB6(),  new PLA(),  new ADC(),  new ROR(),  new NOP(),  new JMP(),  new ADC(),  new ROR(),  new BBR6(),
+		new BVS(),  new ADC(),  new ADC(),  new NOP(),  new STZ(),  new ADC(),  new ROR(),  new RMB7(),  new SEI(),  new ADC(),  new PLY(),  new NOP(),  new JMP(),  new ADC(),  new ROR(),  new BBR7(),
+		new BRA(),  new STA(),  new NOP(),  new NOP(),  new STY(),  new STA(),  new STX(),  new SMB0(),  new DEY(),  new BIT(),  new TXA(),  new NOP(),  new STY(),  new STA(),  new STX(),  new BBS0(),
+		new BCC(),  new STA(),  new STA(),  new NOP(),  new STY(),  new STA(),  new STX(),  new SMB1(),  new TYA(),  new STA(),  new TXS(),  new NOP(),  new STZ(),  new STA(),  new STZ(),  new BBS1(),
+		new LDY(),  new LDA(),  new LDX(),  new NOP(),  new LDY(),  new LDA(),  new LDX(),  new SMB2(),  new TAY(),  new LDA(),  new TAX(),  new NOP(),  new LDY(),  new LDA(),  new LDX(),  new BBS2(),
+		new BCS(),  new LDA(),  new LDA(),  new NOP(),  new LDY(),  new LDA(),  new LDX(),  new SMB3(),  new CLV(),  new LDA(),  new TSX(),  new NOP(),  new LDY(),  new LDA(),  new LDX(),  new BBS3(),
+		new CPY(),  new CMP(),  new NOP(),  new NOP(),  new CPY(),  new CMP(),  new DEC(),  new SMB4(),  new INY(),  new CMP(),  new DEX(),  new WAI(),  new CPY(),  new CMP(),  new DEC(),  new BBS4(),
+		new BNE(),  new CMP(),  new CMP(),  new NOP(),  new NOP(),  new CMP(),  new DEC(),  new SMB5(),  new CLD(),  new CMP(),  new PHX(),  new STP(),  new NOP(),  new CMP(),  new DEC(),  new BBS5(),
+		new CPX(),  new SBC(),  new NOP(),  new NOP(),  new CPX(),  new SBC(),  new INC(),  new SMB6(),  new INX(),  new SBC(),  new NOP(),  new NOP(),  new CPX(),  new SBC(),  new INC(),  new BBS6(),
+		new BEQ(),  new SBC(),  new SBC(),  new NOP(),  new NOP(),  new SBC(),  new INC(),  new SMB7(),  new SED(),  new SBC(),  new PLX(),  new NOP(),  new NOP(),  new SBC(),  new INC(),  new BBS7(),
 	};
 
+	/*
+
+		if (
+			c.opcode == 0x02 ||
+			c.opcode == 0x22 ||
+			c.opcode == 0x42 ||
+			c.opcode == 0x62 ||
+			c.opcode == 0x82 ||
+			c.opcode == 0xC2 ||
+			c.opcode == 0xE2 ||
+			c.opcode == 0x44 ||
+			c.opcode == 0x54 ||
+			c.opcode == 0xD4 ||
+			c.opcode == 0xF4
+		) c.incPC();
+		else if (
+			c.opcode == 0x5C ||
+			c.opcode == 0xDC ||
+			c.opcode == 0xFC
+		) c.pc = toU16b(c.pc + 2);
+		else c.penaltyOP = false;
+	*/
+
+
 	private static final int[] delays = {
-		7, 6, 2, 1, 3, 3, 5, 5, 3, 2, 2, 1, 4, 4, 6, 6,  
-		2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
-		6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 4, 4, 6, 6,  
-		2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
-		6, 6, 2, 1, 3, 3, 5, 5, 3, 2, 2, 1, 3, 4, 6, 6,  
-		2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 8, 4, 7, 7,  
-		6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 5, 4, 6, 6,  
-		2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
-		2, 6, 2, 1, 3, 3, 3, 3, 2, 2, 2, 1, 4, 4, 4, 4,  
-		2, 6, 5, 1, 4, 4, 4, 4, 2, 5, 2, 1, 5, 5, 5, 5,  
-		2, 6, 2, 1, 3, 3, 3, 3, 2, 2, 2, 1, 4, 4, 4, 4,  
-		2, 5, 5, 1, 4, 4, 4, 4, 2, 4, 2, 1, 4, 4, 4, 4,  
-		2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,  
-		2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  
-		2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 1, 4, 4, 6, 6,  
-		2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
+		7, 6, 2, 1, 5, 3, 5, 5, 3, 2, 2, 1, 6, 4, 6, 5, 
+		2, 5, 5, 1, 5, 4, 6, 5, 2, 4, 2, 1, 6, 4, 6, 5, 
+		6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 4, 4, 6, 5, 
+		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 2, 1, 4, 4, 6, 5, 
+		6, 6, 2, 1, 3, 3, 5, 5, 3, 2, 2, 1, 3, 4, 6, 5, 
+		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 3, 1, 8, 4, 6, 5, 
+		6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 6, 4, 6, 5, 
+		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 4, 1, 6, 4, 6, 5, 
+		3, 6, 2, 1, 3, 3, 3, 5, 2, 2, 2, 1, 4, 4, 4, 5, 
+		2, 6, 5, 1, 4, 4, 4, 5, 2, 5, 2, 1, 4, 5, 5, 5, 
+		2, 6, 2, 1, 3, 3, 3, 5, 2, 2, 2, 1, 4, 4, 4, 5, 
+		2, 5, 5, 1, 4, 4, 4, 5, 2, 4, 2, 1, 4, 4, 4, 5, 
+		2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 3, 4, 4, 6, 5, 
+		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 3, 3, 4, 4, 7, 5, 
+		2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 1, 4, 4, 6, 5, 
+		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 4, 1, 4, 4, 7, 5, 
 	};
 }
+
+/*
+
+		OLD
+
+		// 7, 6, 2, 1, 5, 3, 5, 5, 3, 2, 2, 1, 6, 4, 6, 5,  
+		// 2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
+		// 6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 4, 4, 6, 6,  
+		// 2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
+		// 6, 6, 2, 1, 3, 3, 5, 5, 3, 2, 2, 1, 3, 4, 6, 6,  
+		// 2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 8, 4, 7, 7,  
+		// 6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 5, 4, 6, 6,  
+		// 2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,  
+		// 2, 6, 2, 1, 3, 3, 3, 3, 2, 2, 2, 1, 4, 4, 4, 4,  
+		// 2, 6, 5, 1, 4, 4, 4, 4, 2, 5, 2, 1, 5, 5, 5, 5,  
+		// 2, 6, 2, 1, 3, 3, 3, 3, 2, 2, 2, 1, 4, 4, 4, 4,  
+		// 2, 5, 5, 1, 4, 4, 4, 4, 2, 4, 2, 1, 4, 4, 4, 4,  
+		// 2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,  
+		// 2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  
+		// 2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 1, 4, 4, 6, 6,  
+		// 2, 5, 5, 1, 4, 4, 6, 6, 2, 4, 2, 1, 4, 4, 7, 7,
+		7, 6, 2, 1, 5, 3, 5, 5, 3, 2, 2, 1, 6, 4, 6, 5, 
+
+		{
+			var a = document.getElementsByClassName("heyhey");
+			var output = "";
+			for (var i = 1; i < 16; i++) {
+				for (var j = 1; j < 16; j++) {
+					var char =  (
+			    		a[0].children[i].children[j]
+						.children[0].children[0]
+						.innerText.slice(-1)
+					);
+					if (char === "*") {
+			                char =  (
+			                a[0].children[i].children[j]
+			                .children[0].children[0]
+			                .innerText.slice(-2, -1)
+			            );
+					}
+					output += char + ", ";
+			    }
+			}
+			console.log(output);
+		}
+
+		
+		BRK,  ORA,  NOP,  NOP,  TSB,  ORA,  ASL,  RMB0,  PHP,  ORA,  ASL,  NOP,  TSB,  ORA,  ASL,  BBR0,
+		    , (dX),     , (dX),   d ,   d ,   d ,   d ,     ,   # ,   A ,   # ,   a ,   a ,   a , ZRel,
+		
+		BPL,  ORA,  ORA,  NOP,  TRB,  ORA,  ASL,  RMB1,  CLC,  ORA,  INC,  NOP,  TRB,  ORA,  ASL,  BBR1,
+		  r , (d)Y,  (d), (d)Y,   d ,  d,X,  d,X,   d ,     ,  a,Y,   A ,  a,Y,   a ,  a,X,  a,X, ZRel,
+		
+		JSR,  AND,  NOP,  NOP,  BIT,  AND,  ROL,  RMB2,  PLP,  AND,  ROL,  NOP,  BIT,  AND,  ROL,  BBR2,
+		  a , (dX),     , (dX),   d ,   d ,   d ,   d ,     ,   # ,   A ,   # ,   a ,   a ,   a , ZRel,
+		
+		BMI,  AND,  AND,  NOP,  BIT,  AND,  ROL,  RMB3,  SEC,  AND,  DEC,  NOP,  BIT,  AND,  ROL,  BBR3,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,X,   d ,     ,  a,Y,   A ,  a,Y,  a,X,  a,X,  a,X, ZRel,
+		
+		RTI,  EOR,  NOP,  NOP,  NOP,  EOR,  LSR,  RMB4,  PHA,  EOR,  LSR,  NOP,  JMP,  EOR,  LSR,  BBR4,
+		    , (dX),     , (dX),  (d),   d ,   d ,   d ,     ,   # ,   A ,   # ,   a ,   a ,   a , ZRel,
+		
+		BVC,  EOR,  EOR,  NOP,  NOP,  EOR,  LSR,  RMB5,  CLI,  EOR,  PHY,  NOP,  NOP,  EOR,  LSR,  BBR5,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,X,   d ,     ,  a,Y,     ,  a,Y,  a,X,  a,X,  a,X, ZRel,
+		
+		RTS,  ADC,  NOP,  NOP,  STZ,  ADC,  ROR,  RMB6,  PLA,  ADC,  ROR,  NOP,  JMP,  ADC,  ROR,  BBR6,
+		    , (dX),     , (dX),   d ,   d ,   d ,   d ,     ,   # ,   A ,   # ,  (a),   a ,   a , ZRel,
+		
+		BVS,  ADC,  ADC,  NOP,  STZ,  ADC,  ROR,  RMB7,  SEI,  ADC,  PLY,  NOP,  JMP,  ADC,  ROR,  BBR7,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,X,   d ,     ,  a,Y,     ,  a,Y,  a,X,  a,X,  a,X, ZRel,
+		
+		BRA,  STA,  NOP,  NOP,  STY,  STA,  STX,  SMB0,  DEY,  BIT,  TXA,  NOP,  STY,  STA,  STX,  BBS0,
+		  r , (dX),   # , (dX),   d ,   d ,   d ,   d ,     ,   # ,     ,   # ,   a ,   a ,   a , ZRel,
+		
+		BCC,  STA,  STA,  NOP,  STY,  STA,  STX,  SMB1,  TYA,  STA,  TXS,  NOP,  STZ,  STA,  STZ,  BBS1,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,Y,   d ,     ,  a,Y,     ,  a,Y,   a ,  a,X,  a,X, ZRel,
+		
+		LDY,  LDA,  LDX,  NOP,  LDY,  LDA,  LDX,  SMB2,  TAY,  LDA,  TAX,  NOP,  LDY,  LDA,  LDX,  BBS2,
+		  # , (dX),   # , (dX),   d ,   d ,   d ,   d ,     ,   # ,     ,   # ,   a ,   a ,   a , ZRel,
+		
+		BCS,  LDA,  LDA,  NOP,  LDY,  LDA,  LDX,  SMB3,  CLV,  LDA,  TSX,  NOP,  LDY,  LDA,  LDX,  BBS3,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,Y,   d ,     ,  a,Y,     ,  a,Y,  a,X,  a,X,  a,Y, ZRel,
+		
+		CPY,  CMP,  NOP,  NOP,  CPY,  CMP,  DEC,  SMB4,  INY,  CMP,  DEX,  WAI,  CPY,  CMP,  DEC,  BBS4,
+		  # , (dX),   # , (dX),   d ,   d ,   d ,   d ,     ,   # ,     ,     ,   a ,   a ,   a , ZRel,
+		
+		BNE,  CMP,  CMP,  NOP,  NOP,  CMP,  DEC,  SMB5,  CLD,  CMP,  PHX,  STP,  NOP,  CMP,  DEC,  BBS5,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,X,   d ,     ,  a,Y,     ,     ,  a,X,  a,X,  a,X, ZRel,
+		
+		CPX,  SBC,  NOP,  NOP,  CPX,  SBC,  INC,  SMB6,  INX,  SBC,  NOP,  SBC,  CPX,  SBC,  INC,  BBS6,
+		  # , (dX),   # , (dX),   d ,   d ,   d ,   d ,     ,   # ,     ,   # ,   a ,   a ,   a , ZRel,
+		
+		BEQ,  SBC,  SBC,  NOP,  NOP,  SBC,  INC,  SMB7,  SED,  SBC,  PLX,  NOP,  NOP,  SBC,  INC,  BBS7,
+		  r , (d)Y,  (d), (d)Y,  d,X,  d,X,  d,X,   d ,     ,  a,Y,     ,  a,Y,  a,X,  a,X,  a,X, ZRel,
+
+
+
+BRK b	ORA (d,X)	cop b	ora d,S		Tsb d	ORA d	ASL d	ora [d]		PHP	ORA #	ASL A	phd		Tsb a		ORA a	ASL a	ora al
+BPL r	ORA (d),Y	Ora (d)	ora (d,S),Y	Trb d	ORA d,X	ASL d,X	ora [d],Y	CLC	ORA a,Y	Inc A	tcs		Trb a		ORA a,X	ASL a,X	ora al,X
+JSR a	AND (d,X)	jsl al	and d,S		BIT d	AND d	ROL d	and [d]		PLP	AND #	ROL A	pld		BIT a		AND a	ROL a	and al
+BMI r	AND (d),Y	And (d)	and (d,S),Y	Bit d,X	AND d,X	ROL d,X	and [d],Y	SEC	AND a,Y	Dec A	tsc		Bit a,X		AND a,X	ROL a,X	and al,X
+RTI		EOR (d,X)	wdm		eor d,S		mvp s,d	EOR d	LSR d	eor [d]		PHA	EOR #	LSR A	phk		JMP a		EOR a	LSR a	eor al
+BVC r	EOR (d),Y	Eor (d)	eor (d,S),Y	mvn s,d	EOR d,X	LSR d,X	eor [d],Y	CLI	EOR a,Y	Phy		tcd		jmp al		EOR a,X	LSR a,X	eor al,X
+RTS		ADC (d,X)	per rl	adc d,S		Stz d	ADC d	ROR d	adc [d]		PLA	ADC #	ROR A	rtl		JMP (a)		ADC a	ROR a	adc al
+BVS r	ADC (d),Y	Adc (d)	adc (d,S),Y	Stz d,X	ADC d,X	ROR d,X	adc [d],Y	SEI	ADC a,Y	Ply		tdc		Jmp (a,X)	ADC a,X	ROR a,X	adc al,X
+Bra r	STA (d,X)	brl rl	sta d,S		STY d	STA d	STX d	sta [d]		DEY	Bit #	TXA		phb		STY a		STA a	STX a	sta al
+BCC r	STA (d),Y	Sta (d)	sta (d,S),Y	STY d,X	STA d,X	STX d,Y	sta [d],Y	TYA	STA a,Y	TXS		txy		Stz a		STA a,X	Stz a,X	sta al,X
+LDY #	LDA (d,X)	LDX #	lda d,S		LDY d	LDA d	LDX d	lda [d]		TAY	LDA #	TAX		plb		LDY a		LDA a	LDX a	lda al
+BCS r	LDA (d),Y	Lda (d)	lda (d,S),Y	LDY d,X	LDA d,X	LDX d,Y	lda [d],Y	CLV	LDA a,Y	TSX		tyx		LDY a,X		LDA a,X	LDX a,Y	lda al,X
+CPY #	CMP (d,X)	rep #	cmp d,S		CPY d	CMP d	DEC d	cmp [d]		INY	CMP #	DEX		wai		CPY a		CMP a	DEC a	cmp al
+BNE r	CMP (d),Y	Cmp (d)	cmp (d,S),Y	pei d	CMP d,X	DEC d,X	cmp [d],Y	CLD	CMP a,Y	Phx		stp		jml (a)		CMP a,X	DEC a,X	cmp al,X
+CPX #	SBC (d,X)	sep #	sbc d,S		CPX d	SBC d	INC d	sbc [d]		INX	SBC #	NOP		xba		CPX a		SBC a	INC a	sbc al
+BEQ r	SBC (d),Y	Sbc (d)	sbc (d,S),Y	pea a	SBC d,X	INC d,X	sbc [d],Y	SED	SBC a,Y	Plx		xce		jsr (a,X)	SBC a,X	INC a,X	sbc al,X
+
+
+
+
+
+
+		"Impl", "IndX", "Impl", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Accu", "Imme", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "Zrpg", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Accu", "AbsY", "Abso", "AbsX", "AbsX", "ZRel",
+		"Abso", "IndX", "Impl", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Accu", "Imme", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Accu", "AbsY", "AbsX", "AbsX", "AbsX", "ZRel",
+		"Impl", "IndX", "Impl", "IndX", "Indr", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Accu", "Imme", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Impl", "AbsY", "AbsX", "AbsX", "AbsX", "ZRel",
+		"Impl", "IndX", "Impl", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Accu", "Imme", "Indr", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Impl", "AbsY", "AbIX", "AbsX", "AbsX", "ZRel",
+		"Rltv", "IndX", "Imme", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Impl", "Imme", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpY", "Zrpg", "Impl", "AbsY", "Impl", "AbsY", "Abso", "AbsX", "AbsX", "ZRel",
+		"Imme", "IndX", "Imme", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Impl", "Imme", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpY", "Zrpg", "Impl", "AbsY", "Impl", "AbsY", "AbsX", "AbsX", "AbsY", "ZRel",
+		"Imme", "IndX", "Imme", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Impl", "Impl", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Impl", "Impl", "AbsX", "AbsX", "AbsX", "ZRel",
+		"Imme", "IndX", "Imme", "IndX", "Zrpg", "Zrpg", "Zrpg", "Zrpg", "Impl", "Imme", "Impl", "Imme", "Abso", "Abso", "Abso", "ZRel",
+		"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Impl", "AbsY", "AbsX", "AbsX", "AbsX", "ZRel",
+
+
+	"BRK", "ORA", "NOP", "NOP", "TSB", "ORA", "ASL", "RMB0", "PHP", "ORA", "ASL", "NOP", "TSB", "ORA", "ASL", "BBR0",
+	"BPL", "ORA", "ORA", "NOP", "TRB", "ORA", "ASL", "RMB1", "CLC", "ORA", "INC", "NOP", "TRB", "ORA", "ASL", "BBR1",
+	"JSR", "AND", "NOP", "NOP", "BIT", "AND", "ROL", "RMB2", "PLP", "AND", "ROL", "NOP", "BIT", "AND", "ROL", "BBR2",
+	"BMI", "AND", "AND", "NOP", "BIT", "AND", "ROL", "RMB3", "SEC", "AND", "DEC", "NOP", "BIT", "AND", "ROL", "BBR3",
+	"RTI", "EOR", "NOP", "NOP", "NOP", "EOR", "LSR", "RMB4", "PHA", "EOR", "LSR", "NOP", "JMP", "EOR", "LSR", "BBR4",
+	"BVC", "EOR", "EOR", "NOP", "NOP", "EOR", "LSR", "RMB5", "CLI", "EOR", "PHY", "NOP", "NOP", "EOR", "LSR", "BBR5",
+	"RTS", "ADC", "NOP", "NOP", "STZ", "ADC", "ROR", "RMB6", "PLA", "ADC", "ROR", "NOP", "JMP", "ADC", "ROR", "BBR6",
+	"BVS", "ADC", "ADC", "NOP", "STZ", "ADC", "ROR", "RMB7", "SEI", "ADC", "PLY", "NOP", "JMP", "ADC", "ROR", "BBR7",
+	"BRA", "STA", "NOP", "NOP", "STY", "STA", "STX", "SMB0", "DEY", "BIT", "TXA", "NOP", "STY", "STA", "STX", "BBS0",
+	"BCC", "STA", "STA", "NOP", "STY", "STA", "STX", "SMB1", "TYA", "STA", "TXS", "NOP", "STZ", "STA", "STZ", "BBS1",
+	"LDY", "LDA", "LDX", "NOP", "LDY", "LDA", "LDX", "SMB2", "TAY", "LDA", "TAX", "NOP", "LDY", "LDA", "LDX", "BBS2",
+	"BCS", "LDA", "LDA", "NOP", "LDY", "LDA", "LDX", "SMB3", "CLV", "LDA", "TSX", "NOP", "LDY", "LDA", "LDX", "BBS3",
+	"CPY", "CMP", "NOP", "NOP", "CPY", "CMP", "DEC", "SMB4", "INY", "CMP", "DEX", "WAI", "CPY", "CMP", "DEC", "BBS4",
+	"BNE", "CMP", "CMP", "NOP", "NOP", "CMP", "DEC", "SMB5", "CLD", "CMP", "PHX", "STP", "NOP", "CMP", "DEC", "BBS5",
+	"CPX", "SBC", "NOP", "NOP", "CPX", "SBC", "INC", "SMB6", "INX", "SBC", "NOP", "SBC", "CPX", "SBC", "INC", "BBS6",
+	"BEQ", "SBC", "SBC", "NOP", "NOP", "SBC", "INC", "SMB7", "SED", "SBC", "PLX", "NOP", "NOP", "SBC", "INC", "BBS7",
+
+
+
+
+
+*/
