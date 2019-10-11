@@ -347,28 +347,40 @@ class Chip65C02 {
 			c.penaltyOP = true;
 
 			int value = m.readValue(c);
-			int result = c.a + value;
-			
-			if (c.getCarry()) result++;
-
-			c.updateOverflow(result, c.a, value);
-			c.updateCarry(result);
+			int result;
 
 			if (c.getDecimal()) {
+				int accLN = to4b(c.a);
+				int accHN = getMStoLS(c.a);
+				int opeLN = to4b(value);
+				int opeHN = getMStoLS(value);
+				int resultLN = accLN + opeLN;
+				int resultHN = accHN + opeHN;
+				if (c.getCarry()) resultLN++;
 				c.setCarry(false);
-				if (to4b(result) > 0x09) {
-					result += 0x06;
+				while (resultLN > 9) {
+					resultLN -= 10;
+					resultHN++;
 				}
-				if (getMStoLS(result) > 0x09) {
-					result += 0x60;
+				while (resultHN > 9) {
+					resultHN -= 10;
 					c.setCarry(true);
 				}
+				result = resultLN | toMS(resultHN);
 				c.clockCycles++;
+			}
+			else {
+				result = c.a + to8b(value);
+
+				if (c.getCarry()) result++;
+
+				c.updateOverflow(result, c.a, value);
+				c.updateCarry(result);
+
 			}
 
 			c.updateZero(result);
 			c.updateSign(result);
-			c.setSign(false);
 			c.a = to8b(result);
 		}
 	}
@@ -723,8 +735,10 @@ class Chip65C02 {
 			int result = c.a & value;
 
 			c.updateZero(result);
-			c.setOverflow((value & FLAG_V) != 0);
-			c.setSign((value & FLAG_S) != 0);
+			if (!(m instanceof Imme)) {
+				c.setOverflow((value & FLAG_V) != 0);
+				c.setSign((value & FLAG_S) != 0);
+			}
 		}
 	}
 
@@ -781,20 +795,18 @@ class Chip65C02 {
 	static class BRK implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			// c.incPC();
-			if (!c.getInterrupt()) {
-				if (c.debug)
-					System.out.printf("Starting breakInterrupt sequence!\n");
-				c.push(getHItoLO(c.pc));
-				c.push(to8b(c.pc));
-				c.status &= ~FLAG_D;
-				c.push(c.status | FLAG_B);
-				c.setInterrupt(true);
-				c.mapper.onVectorPull(IRQ_VECTOR);
-				int vector = to8b(c.mapper.read(IRQ_VECTOR, false));
-				vector |= toHI(c.mapper.read(IRQ_VECTOR + 1, false));
-				c.pc = vector;
-			}
+			c.incPC();
+			if (c.debug)
+				System.out.printf("Starting breakInterrupt sequence!\n");
+			c.push(getHItoLO(c.pc));
+			c.push(to8b(c.pc));
+			c.push(c.status | FLAG_B);
+			c.setDecimal(false);
+			c.setInterrupt(true);
+			c.mapper.onVectorPull(IRQ_VECTOR);
+			int vector = to8b(c.mapper.read(IRQ_VECTOR, false));
+			vector |= toHI(c.mapper.read(IRQ_VECTOR + 1, false));
+			c.pc = vector;
 		}
 	}
 
@@ -1270,9 +1282,9 @@ class Chip65C02 {
 	static class RTI implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
+			c.setInterrupt(false);
 			c.status = c.pull();
 			c.pc = c.pull() | toHI(c.pull());
-			c.setInterrupt(false);
 			// c.pc = value;
 		}
 	}
@@ -1291,29 +1303,42 @@ class Chip65C02 {
 			c.penaltyOP = true;
 
 			int value = m.readValue(c);
-			int result = to8b(c.a - value);
-			
-			if (!c.getCarry()) result++;
-
-			c.updateCarry(result);
-			c.updateZero(result);
-			c.updateOverflow(result, c.a, value);
-			c.updateSign(result);
+			int result;
 
 			if (c.getDecimal()) {
+				int accLN = to4b(c.a);
+				int accHN = getMStoLS(c.a);
+				int opeLN = 9 - to4b(value);
+				int opeHN = 9 - getMStoLS(value);
+				int resultLN = accLN + opeLN;
+				int resultHN = accHN + opeHN;
+				if (c.getCarry()) resultLN++;
 				c.setCarry(false);
-				result -= 0x66;
-				if (to4b(result) > 0x09) {
-					result += 0x06;
+				while (resultLN > 9) {
+					resultLN -= 10;
+					resultHN++;
 				}
-				if (getMStoLS(result) > 0x09) {
-					result += 0x60;
+				while (resultHN > 9) {
+					resultHN -= 10;
 					c.setCarry(true);
 				}
+				result = resultLN | toMS(resultHN);
 				c.clockCycles++;
 			}
+			else {
+				result = c.a + to8b(~value);
 
+				if (c.getCarry()) result++;
+
+				c.updateOverflow(result, c.a, to8b(~value));
+				c.updateCarry(result);
+
+			}
+
+			c.updateZero(result);
+			c.updateSign(result);
 			c.a = to8b(result);
+		
 		}
 	}
 
@@ -1470,7 +1495,7 @@ class Chip65C02 {
 		public void execute(Chip65C02 c, AddressingMode m) {
 			int value = m.readValue(c);
 			int result = c.a & value;
-			int result2 = ~c.a & value;
+			int result2 = to8b(~c.a) & value;
 
 			c.updateZero(result);
 			m.writeValue(c, result2);
@@ -1598,6 +1623,31 @@ class Chip65C02 {
 		return to8b(mapper.read(STACK_HI | sp, false));
 	}
 
+	// Getters for registers
+	public int getAccumulator() {
+		return to8b(a);
+	}
+
+	public int getRegisterX() {
+		return to8b(x);
+	}
+
+	public int getRegisterY() {
+		return to8b(y);
+	}
+
+	public int getStatusFlags() {
+		return to8b(status);
+	}
+
+	public int getStackPointer() {
+		return to8b(sp);
+	}
+
+	public int getProgramCounter() {
+		return toU16b(pc);
+	}
+
 	// Getters and setters
 	public Mapper getMapper() {
 		return mapper;
@@ -1635,6 +1685,8 @@ class Chip65C02 {
 		setOverflow(true);
 	}
 
+	public int counterEnable = 0;
+
 	public void tickClock() {
 		status = to8b(status | FLAG_U);
 		a = to8b(a);
@@ -1642,7 +1694,6 @@ class Chip65C02 {
 		y = to8b(y);
 		sp = to8b(sp);
 		pc = toU16b(pc);
-		
 		if (!ready) {
 			if (debug)
 				System.out.printf("Not ready!\n");
@@ -1789,8 +1840,8 @@ class Chip65C02 {
 		setZero(to8b(value) == 0);
 	}
 
-	private void updateOverflow(int value, int numA, int numB) {
-		setOverflow(((value ^ numA) & (value ^ numB) & 0b1000_0000) != 0);
+	private void updateOverflow(int sum, int numA, int numB) {
+		setOverflow((~(numA ^ numB) & (sum ^ numA) & 0b1000_0000) != 0);
 	}
 
 	private void updateSign(int value) {
@@ -1798,48 +1849,48 @@ class Chip65C02 {
 	}
 
 	// Truncate values
-	private static int to8b(int value) {
+	public static int  to8b(int value) {
 		return value & 0x00FF;
 	}
 
-	private static int toU16b(int value) {
+	public static int toU16b(int value) {
 		return value & 0xFFFF;
 	}
 
-	private static int toS16b(int value) {
+	public static int toS16b(int value) {
 		return (value & 0b1000_0000) != 0 ? (value | 0xFF00): (value);
 	}
 
-	private static int getHI(int value) {
+	public static int getHI(int value) {
 		return value & 0xFF00;
 	}
 
-	private static int getHItoLO(int value) {
+	public static int getHItoLO(int value) {
 		return (value & 0xFF00) >> 8;
 	}
 
-	private static int toHI(int value) {
+	public static int toHI(int value) {
 		return to8b(value) << 8;
 	}
 
-	private static int to4b(int value) {
+	public static int to4b(int value) {
 		return value & 0x0F;
 	}
 
-	private static int getMS(int value) {
+	public static int getMS(int value) {
 		return value & 0xF0;
 	}
 
-	private static int getMStoLS(int value) {
+	public static int getMStoLS(int value) {
 		return (value & 0xF0) >> 4;
 	}
 
-	private static int toMS(int value) {
-		return to4b(value) << 4;
+	public static int toMS(int value) {
+		return to8b(to4b(value) << 4);
 	}
 
 	// Print as binary
-	private static String asBinary(int value, int bits) {
+	public static String asBinary(int value, int bits) {
 		String result = "";
 		int mask = 1 << bits;
 		for (int i = 0; i < bits; i++) {

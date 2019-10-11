@@ -7,7 +7,6 @@ class TestChip {
 
 		private static final int RAM_SIZE = 0x0001_0000;
 		private int[] ram;
-		private boolean brk;
 		private Chip65C02 chip;
 
 		MyMapper() {
@@ -16,8 +15,7 @@ class TestChip {
 			try {
 				FileInputStream f = new FileInputStream("65C02_extended_opcodes_test.bin");
 				for (int i = 0; i < RAM_SIZE; i++) {
-					// int b = f.read();
-						ram[i] = f.read();
+					ram[i] = f.read();
 				}
 				f.close();
 			}
@@ -146,24 +144,16 @@ class TestChip {
 			// ram[0xFFFF] = 0x06;
 		}
 
-		public boolean getBrk() {
-			return brk;
-		}
-
-		public void setBrk(boolean brk) {
-			this.brk = brk;
-		}
-
 		public void setChip(Chip65C02 chip) {
 			this.chip = chip;
 		}
 
 		public int read(int addr, boolean sync) {
 			int value = ram[addr];
-			System.out.printf(
-				"Reading value 0x%02X from $%04X %s\n",
-				value, addr, sync? "(SYNC)": ""
-			);
+			// System.out.printf(
+			// 	"Reading value 0x%02X from $%04X %s\n",
+			// 	value, addr, sync? "(SYNC)": ""
+			// );
 			final String[] instruction = {
 				"BRK", "ORA", "NOP", "NOP", "TSB", "ORA", "ASL", "RMB0", "PHP", "ORA", "ASL", "NOP", "TSB", "ORA", "ASL", "BBR0",
 				"BPL", "ORA", "ORA", "NOP", "TRB", "ORA", "ASL", "RMB1", "CLC", "ORA", "INC", "NOP", "TRB", "ORA", "ASL", "BBR1",
@@ -201,12 +191,21 @@ class TestChip {
 				"Rltv", "IndY", "ZpIn", "IndY", "ZrpX", "ZrpX", "ZrpX", "Zrpg", "Impl", "AbsY", "Impl", "AbsY", "AbsX", "AbsX", "AbsX", "ZRel",
 			};
 			if (sync) {
-				System.out.printf("\n\n%04X : %s <%s>\n", addr, instruction[value], addressing[value]);
-				
-				if (addr > 0x2750) {
-					System.out.printf("Press ENTER to continue: ");
-					new Scanner(System.in).nextLine();
+				// System.out.printf("\n\n%04X : %s <%s>\n", addr, instruction[value], addressing[value]);
+				if (addr == 0x24F1) {
+					chip.setReady(false);
 				}
+				// if (addr > 0x23C0 && addr < 0x2410)
+				// 	chip.counterEnable = 1;
+				// // if (addr > 0x2411 && addr < 0x24F0)
+				// // 	chip.counterEnable = 2;
+				// // if (addr > 0x24D7 && addr < 0x25F0) {
+				// if (addr > 0x24D7 && addr < 0x24F0) {
+				// 	debug = true;
+				// 	chip.setDebug(true);
+				// 	System.out.printf("Press ENTER to continue: ");
+				// 	new Scanner(System.in).nextLine();
+				// }
 				// try {
 				// 	Thread.sleep(1000);
 				// }
@@ -217,28 +216,18 @@ class TestChip {
 			return value;
 		}
 		public void write(int addr, int value) {
-			System.out.printf("Writing value 0x%02X to $%04X\n", value, addr);
+			// System.out.printf("Writing value 0x%02X to $%04X\n", value, addr);
 			ram[addr] = value;
 		}
 
 		public void onVectorPull(int addr) {
-			System.out.printf("Pulling vector $%04X\n", addr);
-			// if (addr == 0xFFFE) {
-			// 	brk = true;
-			// 	try {
-			// 		// Thread.sleep(400);
-			// 	}
-			// 	catch (Exception e) {
-			// 		System.out.println("Error in Thread.sleep(): " + e.getMessage());
-			// 	}
-			// }
+			// System.out.printf("Pulling vector $%04X\n", addr);
 		}
 
 		public void memDump(int start, int end, int columns) {
 			if (columns < 1) return;
 			int startCbytes = start / columns * columns;
 			int endCbytes = (end + columns - 1) / columns * columns;
-			// System.out.printf("$%04X = ", startCbytes);
 			for (int i = startCbytes; i < start; i++) {
 				if (i % 256 == 0)
 					System.out.printf("\nPAGE CROSS: ");
@@ -309,21 +298,42 @@ class TestChip {
 					System.out.println();
 			}
 		}
+
+		public void state() {
+			System.out.printf(
+				"PC = $%04X / PS = $%02X / SP = $%02X\n",
+				chip.getProgramCounter(),
+				chip.getStatusFlags(),
+				chip.getStackPointer()
+			);
+			System.out.printf(
+				"ACC = $%02X / X = $%02X / Y = $%02X\n",
+				chip.getAccumulator(),
+				chip.getRegisterX(),
+				chip.getRegisterY()
+			);
+			System.out.printf("NV-B DIZC (PROCESSOR STATUS FLAGS)\n");
+			System.out.printf(
+				"%s\n\n", chip.asBinary(chip.getStatusFlags(), 8)
+			);
+		}
 	}
 
 	public static void main(String[] args) {
 		MyMapper mapper = new MyMapper();
 		Chip65C02 chip = new Chip65C02(mapper);
-		chip.setDebug(true);
+		chip.setDebug(false);
 		chip.setReset(false);
 		chip.setReady(true);
 		mapper.setChip(chip);
-		while (true) {
+		while (chip.getReady()) {
 			chip.tickClock();
 		}
 		// for (int i = 0; i < 20; i++) {
 		// 	chip.tickClock();
 		// }
-		// mapper.memDump(0x0000, 0x09FF, 16);
+		mapper.memDump(0x0000, 0xFFFF, 16);
+		mapper.state();
+		System.out.println("Done.");
 	}
 }
