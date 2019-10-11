@@ -1,2 +1,4 @@
 # 65C02java
-WIP
+
+== EMULATOR COMPLETED ==
+Currently it was only tested with Klaus Dormann's test suite, and passed :)
