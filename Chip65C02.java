@@ -1445,7 +1445,7 @@ class Chip65C02 {
 	static class STP implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.setReady(false);
+			c.stopped = true;
 		}
 	}
 
@@ -1554,8 +1554,8 @@ class Chip65C02 {
 	static class WAI implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			// c.setReady(false);
-			c.pc = toU16b(c.pc - 1);
+			c.setReady(false);
+			// c.pc = toU16b(c.pc - 1);
 		}
 	}
 
@@ -1582,7 +1582,7 @@ class Chip65C02 {
 
 	// Pins
 	private boolean interruptRequest, nonMaskableInterrupt, reset;
-	private boolean ready;
+	private boolean ready, stopped;
 
 	// Other variables
 	private int opcode, clockCycles;
@@ -1694,26 +1694,12 @@ class Chip65C02 {
 		y = to8b(y);
 		sp = to8b(sp);
 		pc = toU16b(pc);
-		if (!ready) {
-			if (debug)
-				System.out.printf("Not ready!\n");
-			return;
-		}
 		if (clockCycles > 1) {
 			clockCycles--;
 			if (debug)
 				System.out.printf("Clock cycles left = %d.\n", clockCycles);
 			return;
 		}
-
-		if (debug) {
-			System.out.printf("\n\n--== NEW INSTRUCTION FETCH ==--\n");
-			System.out.printf("	PC = $%04X / PS = $%02X / SP = $%02X\n", pc, status, sp);
-			System.out.printf("	ACC = $%02X / X = $%02X / Y = $%02X\n", a, x, y);
-			System.out.printf("	NV-B DIZC (PROCESSOR STATUS FLAGS)\n");
-			System.out.printf("	%s\n\n", asBinary(status, 8));
-		}
-
 		if (reset) {
 			if (debug)
 				System.out.printf("Starting reset sequence!\n");
@@ -1727,12 +1713,18 @@ class Chip65C02 {
 			pc = vector;
 			return;
 		}
+		if (stopped) {
+			// if (debug)
+				System.out.printf("Waiting for reset sequence!\n");
+			return;
+		}
 		if (interruptRequest) {
 			if (debug)
 				System.out.printf("Starting interruptRequest sequence!\n");
 			setInterruptRequest(false);
+			setReady(true);
 			if (!getInterrupt()) {
-				// incPC();
+				incPC();
 				push(getHItoLO(pc));
 				push(to8b(pc));
 				push(status & ~FLAG_B);
@@ -1748,6 +1740,7 @@ class Chip65C02 {
 			if (debug)
 				System.out.printf("Starting nonMaskableInterrupt sequence!\n");
 			setNonMaskableInterrupt(false);
+			setReady(true);
 			incPC();
 			push(getHItoLO(pc));
 			push(to8b(pc));
@@ -1757,6 +1750,18 @@ class Chip65C02 {
 			vector |= toHI(mapper.read(IRQ_VECTOR + 1, false));
 			pc = vector;
 			return;
+		}
+		if (!ready) {
+			// if (debug)
+				System.out.printf("Not ready (waiting for interrupt)!\n");
+			return;
+		}
+		if (debug) {
+			System.out.printf("\n\n--== NEW INSTRUCTION FETCH ==--\n");
+			System.out.printf("	PC = $%04X / PS = $%02X / SP = $%02X\n", pc, status, sp);
+			System.out.printf("	ACC = $%02X / X = $%02X / Y = $%02X\n", a, x, y);
+			System.out.printf("	NV-B DIZC (PROCESSOR STATUS FLAGS)\n");
+			System.out.printf("	%s\n\n", asBinary(status, 8));
 		}
 
 		if (debug)
