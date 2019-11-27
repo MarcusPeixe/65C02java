@@ -1,0 +1,18 @@
+; Fill screen with F's
+
+	LDA #70 ; 'F' in ascii
+
+loop:
+	STA $0200,X
+	STA $0300,X
+	STA $0400,X
+	STA $0500,X
+	INX
+	
+	BNE loop
+	STP
+
+; Assembled binary (paste in binary area):
+
+A9 46 9D 00 02 9D 00 03 9D 00 04 9D 00 05 E8 D0 
+F1 DB

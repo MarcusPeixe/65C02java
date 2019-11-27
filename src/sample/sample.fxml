@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<HBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" onDragDropped="#loadDroppedFile" onDragExited="#unHighlight" onDragOver="#highlight" prefHeight="600.0" prefWidth="800.0" style="-fx-background-color: #333333; -fx-border-color: black; -fx-border-width: 3;" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.Controller">
+   <children>
+      <VBox prefHeight="594.0" prefWidth="454.0" style="-fx-border-color: gray;" HBox.hgrow="ALWAYS">
+         <children>
+            <AnchorPane VBox.vgrow="NEVER">
+               <children>
+                  <Label alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 18;" text="Monitor" textAlignment="CENTER" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+            <AnchorPane VBox.vgrow="ALWAYS">
+               <children>
+                  <TextArea fx:id="binaryEditor" layoutX="2.0" layoutY="2.0" onDragDropped="#loadDroppedFile" promptText="Drag &amp; drop the binary here..." style="-fx-font-family: monospace; -fx-border-color: orange; -fx-border-width: 5; -fx-border-radius: 4; -fx-control-inner-background: black; -fx-text-fill: white; -fx-font-size: 16; -fx-prompt-text-fill: gray; -fx-highlight-fill: orange;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+            <AnchorPane layoutX="10.0" layoutY="10.0" VBox.vgrow="NEVER">
+               <children>
+                  <Label alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 18;" text="Files" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+            <AnchorPane VBox.vgrow="NEVER">
+               <children>
+                  <Button fx:id="loadB" contentDisplay="CENTER" mnemonicParsing="false" onAction="#loadFile" style="-fx-background-color: orange; -fx-text-fill: white;" text="Load binary RAM image" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+            <AnchorPane layoutX="10.0" layoutY="310.0" VBox.vgrow="NEVER">
+               <children>
+                  <Button fx:id="saveB" mnemonicParsing="false" onAction="#saveFile" style="-fx-background-color: orange; -fx-text-fill: white;" text="Save binary RAM image" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+         </children>
+      </VBox>
+      <VBox style="-fx-border-color: gray;">
+         <children>
+            <AnchorPane nodeOrientation="RIGHT_TO_LEFT">
+               <children>
+                  <AnchorPane nodeOrientation="LEFT_TO_RIGHT" style="-fx-border-color: orange; -fx-border-width: 5; -fx-border-radius: 4;">
+                     <children>
+                        <Canvas fx:id="screen" height="320.0" nodeOrientation="INHERIT" width="320.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                  </AnchorPane>
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+            <AnchorPane VBox.vgrow="NEVER">
+               <children>
+                  <Label alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 18;" text="Program" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+            <HBox VBox.vgrow="NEVER">
+               <children>
+                  <AnchorPane HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="runB" mnemonicParsing="false" onAction="#runCode" style="-fx-background-color: orange; -fx-text-fill: white;" text="Run" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
+                  <AnchorPane HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="stopB" mnemonicParsing="false" onAction="#stopCode" style="-fx-background-color: orange; -fx-text-fill: white;" text="Stop" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
+                  <AnchorPane layoutX="62.0" layoutY="15.0" HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="stepB" mnemonicParsing="false" onAction="#stepCode" style="-fx-background-color: orange; -fx-text-fill: white;" text="Step" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
+               </children>
+            </HBox>
+            <AnchorPane layoutX="21.0" layoutY="367.0" VBox.vgrow="NEVER">
+               <children>
+                  <Label alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 18;" text="Interrupts" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+               </children>
+            </AnchorPane>
+            <HBox layoutX="11.0" layoutY="404.0" VBox.vgrow="NEVER">
+               <children>
+                  <AnchorPane HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="RES" mnemonicParsing="false" onAction="#resTrigger" style="-fx-background-color: orange; -fx-text-fill: white;" text="RESET" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
+                  <AnchorPane HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="IRQ" mnemonicParsing="false" onAction="#irqTrigger" style="-fx-background-color: orange; -fx-text-fill: white;" text="IRQ" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
+                  <AnchorPane layoutX="62.0" layoutY="15.0" HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="NMI" mnemonicParsing="false" onAction="#nmiTrigger" style="-fx-background-color: orange; -fx-text-fill: white;" text="NMI" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
+               </children>
+            </HBox>
+            <AnchorPane VBox.vgrow="ALWAYS">
+               <children>
+                  <TextArea fx:id="console" editable="false" layoutX="-5.0" layoutY="2.0" promptText="Output..." style="-fx-font-family: monospace; -fx-border-color: orange; -fx-border-width: 5; -fx-border-radius: 4; -fx-control-inner-background: black; -fx-text-fill: green; -fx-font-size: 13; -fx-prompt-text-fill: gray; -fx-highlight-fill: orange;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                     <font>
+                        <Font size="10.0" />
+                     </font>
+                  </TextArea>
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </VBox.margin>
+            </AnchorPane>
+         </children>
+      </VBox>
+   </children>
+</HBox>
