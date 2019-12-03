@@ -71,7 +71,7 @@ public class Controller implements Mapper {
         {
             public void handle(long currentNanoTime)
             {
-                executeInstruction();
+                executeInstruction(1000);
                 // background image clears canvas
 //                gc.drawImage( space, 0, 0 );
 //                gc.drawImage( earth, x, y );
@@ -146,36 +146,6 @@ public class Controller implements Mapper {
         }
     }
 
-    void loadImageToMemory() {
-        String[] nums = binaryEditor.getText().split("\\s+");
-//        System.out.printf("nums = %s\n", nums);
-        for (int i = 0; i < 0x10000; i++) {
-            ram[i] = 0x00;
-        }
-        for (int i = 0; i < nums.length; i++) {
-            int num = 0;
-            try {
-                num = Integer.parseInt(nums[i].trim(), 16) & 0xFF;
-    //            System.out.printf("%02X ", ram[(i + 0x0600) & 0xFFFF]);
-            }
-            catch (NumberFormatException e) {
-                System.out.printf("Number Format Exception: at number %d: number \"%s\"\n", i, nums[i].trim());
-                System.out.println(e.getMessage());
-                e.printStackTrace();
-                System.exit(1);
-            }
-//            System.out.printf("at number %d: number \"%s\": int %02X\n", i, nums[i].trim(), num);
-            ram[(i + 0x0600) & 0xFFFF] = num;
-        }
-//        System.out.println();
-        ram[0xFFFA] = 0x00;
-        ram[0xFFFB] = 0x06;
-        ram[0xFFFC] = 0x00;
-        ram[0xFFFD] = 0x06;
-        ram[0xFFFE] = 0x1D;
-        ram[0xFFFF] = 0x06;
-    }
-
     public void state() {
         String s =
         String.format(
@@ -233,13 +203,11 @@ public class Controller implements Mapper {
                 c = (char) value;
             }
             else if (value < 192) {
-//                System.out.println("Colour!");
                 r = ((value >> 0) & 3) * 0x55;
                 g = ((value >> 2) & 3) * 0x55;
                 b = ((value >> 4) & 3) * 0x55;
             }
             else {
-//                System.out.println("Greyscale!");
                 int greyscale = (value - 192) * 4;
                 r = greyscale;
                 g = greyscale;
@@ -247,21 +215,8 @@ public class Controller implements Mapper {
             }
             int offset = i - 0x0200;
             int x = offset % 32, y = offset / 32;
-//            System.out.printf("x = %d, y = %d\n", x, y);
             drawPixel(x, y, Color.rgb(r, g, b), c);
-//            if ((i & 0x1F) == 0)
-//                out += "|";
-//            if (ram[i] != 0) {
-//                out += String.format(
-//                        "%02X",
-//                        ram[i] & 0xFF
-//                );
-//            }
-//            else  out += "  ";
-//            if ((i & 0x1F) == 0x1F)
-//                out += "|\n";
         }
-//        console.setText(out + "+----------------------------------------------------------------+\n");
     }
 
     @FXML
@@ -269,6 +224,9 @@ public class Controller implements Mapper {
 
     @FXML
     private Canvas screen;
+
+    @FXML
+    private Button binaryB;
 
     @FXML
     private Button loadB;
@@ -309,11 +267,41 @@ public class Controller implements Mapper {
 
     @FXML
     void resTrigger(ActionEvent event) {
-        loadImageToMemory();
         chip.setReset(true);
         System.out.printf("RESET SET! ready = %s\n", chip.getReady());
+    }
+
+    @FXML
+    void loadImageToMemory() {
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, 320, 320);
+        String[] nums = binaryEditor.getText().split("\\s+");
+//        System.out.printf("nums = %s\n", nums);
+        for (int i = 0; i < 0x10000; i++) {
+            ram[i] = 0x00;
+        }
+        for (int i = 0; i < nums.length; i++) {
+            int num = 0;
+            try {
+                num = Integer.parseInt(nums[i].trim(), 16) & 0xFF;
+                //            System.out.printf("%02X ", ram[(i + 0x0600) & 0xFFFF]);
+            }
+            catch (NumberFormatException e) {
+                System.out.printf("Number Format Exception: at number %d: number \"%s\"\n", i, nums[i].trim());
+                System.out.println(e.getMessage());
+                e.printStackTrace();
+                System.exit(1);
+            }
+//            System.out.printf("at number %d: number \"%s\": int %02X\n", i, nums[i].trim(), num);
+            ram[(i + 0x0600) & 0xFFFF] = num;
+        }
+//        System.out.println();
+        ram[0xFFFA] = 0x00;
+        ram[0xFFFB] = 0x06;
+        ram[0xFFFC] = 0x00;
+        ram[0xFFFD] = 0x06;
+        ram[0xFFFE] = 0x1D;
+        ram[0xFFFF] = 0x06;
     }
 
     @FXML
@@ -325,21 +313,16 @@ public class Controller implements Mapper {
     @FXML
     void stepCode(ActionEvent event) {
         chip.setReady(true);
-        executeInstruction();
+        executeInstruction(1);
 //        state();
     }
 
-    private void executeInstruction() {
-//        int max = 10;
-        for (int i = 0; i < 10000; i++) {
-            chip.tickClock();
+    private void executeInstruction(int amount) {
+        for (int i = 0; i < amount; i++) {
+            for (int j = 0; j < 10; j++) {
+                if (chip.tickClock()) break;
+            }
         }
-//            if (!chip.getReady()) return;
-//            if (chip.getStopped()) return;
-//            max--;
-//            if (max < 1) break;
-//            state();
-//        readInstruction = false;
         display();
         state();
     }

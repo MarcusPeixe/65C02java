@@ -16,7 +16,7 @@
          <children>
             <AnchorPane VBox.vgrow="NEVER">
                <children>
-                  <Label alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 18;" text="Monitor" textAlignment="CENTER" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                  <Label alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 18;" text="Code editor" textAlignment="CENTER" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
                </children>
                <VBox.margin>
                   <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
@@ -80,6 +80,17 @@
             </AnchorPane>
             <HBox VBox.vgrow="NEVER">
                <children>
+                  <AnchorPane layoutX="15.0" layoutY="15.0" HBox.hgrow="ALWAYS">
+                     <children>
+                        <Button fx:id="binaryB" mnemonicParsing="false" onAction="#loadImageToMemory" style="-fx-background-color: orange; -fx-text-fill: white;" text="Load" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                     <opaqueInsets>
+                        <Insets />
+                     </opaqueInsets>
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                     </HBox.margin>
+                  </AnchorPane>
                   <AnchorPane HBox.hgrow="ALWAYS">
                      <children>
                         <Button fx:id="runB" mnemonicParsing="false" onAction="#runCode" style="-fx-background-color: orange; -fx-text-fill: white;" text="Run" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
