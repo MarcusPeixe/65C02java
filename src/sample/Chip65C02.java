@@ -4,9 +4,9 @@ public class Chip65C02 {
 
 	// Nested classes
 	interface AddressingMode {
-		public void calcAddress(Chip65C02 thisChip);
-		public int readValue(Chip65C02 thisChip);
-		public void writeValue(Chip65C02 thisChip, int value);
+		void calcAddress(Chip65C02 thisChip);
+		int readValue(Chip65C02 thisChip);
+		void writeValue(Chip65C02 thisChip, int value);
 	}
 
 	// IMPLIED
@@ -175,12 +175,8 @@ public class Chip65C02 {
 			c.incPC();
 			c.address |= toHI(c.mapper.read(c.pc, false));
 			c.incPC();
-			
-			int firstpage = getHI(c.address);
-			c.address = toU16b(c.address + c.x);
-			int lastpage = getHI(c.address);
 
-			if (firstpage != lastpage) c.penaltyADDR = true;
+			c.address = toU16b(c.address + c.x);
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
@@ -200,12 +196,8 @@ public class Chip65C02 {
 			c.incPC();
 			c.address |= toHI(c.mapper.read(c.pc, false));
 			c.incPC();
-			
-			int firstpage = getHI(c.address);
+
 			c.address = toU16b(c.address + c.y);
-			int lastpage = getHI(c.address);
-			
-			if (firstpage != lastpage) c.penaltyADDR = true;
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
@@ -292,14 +284,12 @@ public class Chip65C02 {
 		public void calcAddress(Chip65C02 c) {
 			int a1 = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
-			int a2 = to8b(a1 + 1);
-			
-			c.address = to8b(c.mapper.read(to8b(a1), false)) | toHI(c.mapper.read(a2, false));
-			int firstpage = getHI(c.address);
-			c.address = toU16b(c.address + c.y);
-			int lastpage = getHI(c.address);
 
-			if (firstpage != lastpage) c.penaltyADDR = true;
+			c.address =
+				to8b(c.mapper.read(a1, false)) |
+				toHI(c.mapper.read(to8b(a1 + 1), false));
+
+			c.address = toU16b(c.address + c.y);
 		}
 		@Override
 		public int readValue(Chip65C02 c) {
@@ -340,13 +330,12 @@ public class Chip65C02 {
 	}
 
 	interface OPcode {
-		public void execute(Chip65C02 thisChip, AddressingMode mode);
+		void execute(Chip65C02 thisChip, AddressingMode mode);
 	}
 
 	static class ADC implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 
 			int value = m.readValue(c);
 			int result;
@@ -369,7 +358,7 @@ public class Chip65C02 {
 					c.setCarry(true);
 				}
 				result = resultLN | toMS(resultHN);
-				c.clockCycles++;
+
 			}
 			else {
 				result = c.a + to8b(value);
@@ -390,7 +379,6 @@ public class Chip65C02 {
 	static class AND implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 
 			int value = m.readValue(c);
 			int result = c.a & value;
@@ -427,11 +415,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_0001) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -444,11 +428,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_0010) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -461,11 +441,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_0100) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -478,11 +454,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_1000) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -495,11 +467,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0001_0000) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -512,11 +480,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0010_0000) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -529,11 +493,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0100_0000) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -546,11 +506,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b1000_0000) == 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -563,11 +519,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_0001) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -580,11 +532,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_0010) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -597,11 +545,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_0100) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -614,11 +558,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0000_1000) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -631,11 +571,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0001_0000) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -648,11 +584,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0010_0000) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -665,11 +597,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b0100_0000) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -682,11 +610,7 @@ public class Chip65C02 {
 			int rel = getHItoLO(values);
 			int zpValue = c.mapper.read(zpAddr, false);
 			if ((zpValue & 0b1000_0000) != 0) {
-				int oldpc = c.pc;
 				c.pc += rel;
-				// if (getHI(oldpc) != getHI(c.pc))
-				// 	c.clockCycles++;
-				// c.clockCycles++;
 			}
 		}
 	}
@@ -695,11 +619,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getCarry()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -708,11 +628,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getCarry()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -721,11 +637,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getZero()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -748,11 +660,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getSign()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -761,11 +669,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getZero()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -774,11 +678,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getSign()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -786,11 +686,7 @@ public class Chip65C02 {
 	static class BRA implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			int oldpc = c.pc;
 			c.pc += m.readValue(c);
-			if (getHI(oldpc) != getHI(c.pc))
-				c.clockCycles++;
-			c.clockCycles++;
 		}
 	}
 
@@ -799,7 +695,7 @@ public class Chip65C02 {
 		public void execute(Chip65C02 c, AddressingMode m) {
 			c.incPC();
 			if (c.debug)
-				System.out.printf("Starting breakInterrupt sequence!\n");
+				System.out.print("Starting breakInterrupt sequence!\n");
 			c.push(getHItoLO(c.pc));
 			c.push(to8b(c.pc));
 			c.push(c.status | FLAG_B);
@@ -816,11 +712,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (!c.getOverflow()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -829,11 +721,7 @@ public class Chip65C02 {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
 			if (c.getOverflow()) {
-				int oldpc = c.pc;
 				c.pc += m.readValue(c);
-				if (getHI(oldpc) != getHI(c.pc))
-					c.clockCycles++;
-				c.clockCycles++;
 			}
 		}
 	}
@@ -869,7 +757,6 @@ public class Chip65C02 {
 	static class CMP implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 			int value = m.readValue(c);
 			int result = c.a - value;
 
@@ -945,7 +832,6 @@ public class Chip65C02 {
 	static class EOR implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 
 			int value = m.readValue(c);
 			int result = c.a ^ value;
@@ -1014,7 +900,6 @@ public class Chip65C02 {
 	static class LDA implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 			int value = m.readValue(c);
 
 			c.updateSign(value);
@@ -1027,7 +912,6 @@ public class Chip65C02 {
 	static class LDX implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 			int value = m.readValue(c);
 
 			c.updateSign(value);
@@ -1040,7 +924,6 @@ public class Chip65C02 {
 	static class LDY implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 			int value = m.readValue(c);
 
 			c.updateSign(value);
@@ -1070,10 +953,9 @@ public class Chip65C02 {
 	static class NOP implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 			if (
 				(c.opcode & 0x07) == 3
-			) c.pc = toU16b(c.pc + 0);
+			) c.pc = toU16b(c.pc);
 
 			if (
 				(c.opcode & 0x1F) == 2 ||
@@ -1089,14 +971,12 @@ public class Chip65C02 {
 				c.opcode == 0xFC 
 			) c.pc = toU16b(c.pc + 2);
 
-			else c.penaltyOP = false;
 		}
 	}
 
 	static class ORA implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 
 			int value = m.readValue(c);
 			int result = c.a | value;
@@ -1302,7 +1182,6 @@ public class Chip65C02 {
 	static class SBC implements OPcode {
 		@Override
 		public void execute(Chip65C02 c, AddressingMode m) {
-			c.penaltyOP = true;
 
 			int value = m.readValue(c);
 			int result;
@@ -1325,7 +1204,7 @@ public class Chip65C02 {
 					c.setCarry(true);
 				}
 				result = resultLN | toMS(resultHN);
-				c.clockCycles++;
+
 			}
 			else {
 				result = c.a + to8b(~value);
@@ -1587,9 +1466,8 @@ public class Chip65C02 {
 	private boolean ready, stopped;
 
 	// Other variables
-	private int opcode, clockCycles;
+	private int opcode;
 	private int address;
-	private boolean penaltyOP, penaltyADDR;
 	private boolean debug;
 
 	// Handle IO
@@ -1607,7 +1485,7 @@ public class Chip65C02 {
 		y = 0;
 		status = 0b00110000;
 		sp = 0xFF;
-		pc = 0x0400;
+		pc = 0x0200;
 	}
 
 	// Numbers
@@ -1691,43 +1569,29 @@ public class Chip65C02 {
 		setOverflow(true);
 	}
 
-	public int counterEnable = 0;
-
 	public boolean tickClock() {
-		status = to8b(status | FLAG_U);
-		a = to8b(a);
-		x = to8b(x);
-		y = to8b(y);
-		sp = to8b(sp);
-		pc = toU16b(pc);
-		if (clockCycles > 1) {
-			clockCycles--;
+		if (reset) {
 			if (debug)
-				System.out.printf("Clock cycles left = %d.\n", clockCycles);
-			return false;
-		}
-		else if (reset) {
-			if (debug)
-				System.out.printf("Starting reset sequence!\n");
+				System.out.print("Starting reset sequence!\n");
 			setReset(false);
 			setReady(true);
 			stopped = false;
-			clockCycles = 7;
-			status = status & 0b1100_0011 | 0b00110000;
+			status = status & 0b1100_0011 | 0b0011_0000;
 			mapper.onVectorPull(RES_VECTOR);
 			int vector = to8b(mapper.read(RES_VECTOR, false));
 			vector |= toHI(mapper.read(RES_VECTOR + 1, false));
 			pc = vector;
+			sp = 0xFF;
 			return true;
 		}
 		else if (stopped) {
 			 if (debug)
-				System.out.printf("Waiting for reset sequence!\n");
+				 System.out.print("Waiting for reset sequence!\n");
 			return false;
 		}
 		else if (interruptRequest) {
 			if (debug)
-				System.out.printf("Starting interruptRequest sequence!\n");
+				System.out.print("Starting interruptRequest sequence!\n");
 			setInterruptRequest(false);
 			setReady(true);
 			if (!getInterrupt()) {
@@ -1745,7 +1609,7 @@ public class Chip65C02 {
 		}
 		else if (nonMaskableInterrupt) {
 			if (debug)
-				System.out.printf("Starting nonMaskableInterrupt sequence!\n");
+				System.out.print("Starting nonMaskableInterrupt sequence!\n");
 			setNonMaskableInterrupt(false);
 			setReady(true);
 			incPC();
@@ -1760,21 +1624,25 @@ public class Chip65C02 {
 		}
 		else if (!ready) {
 			 if (debug)
-				System.out.printf("Not ready (waiting for interrupt)!\n");
+				 System.out.print("Not ready (waiting for interrupt)!\n");
 			return false;
 		}
+		status = to8b(status | FLAG_U);
+		a = to8b(a);
+		x = to8b(x);
+		y = to8b(y);
+		sp = to8b(sp);
+		pc = toU16b(pc);
 		if (debug) {
-			System.out.printf("\n\n--== NEW INSTRUCTION FETCH ==--\n");
+			System.out.print("\n\n--== NEW INSTRUCTION FETCH ==--\n");
 			System.out.printf("	PC = $%04X / PS = $%02X / SP = $%02X\n", pc, status, sp);
 			System.out.printf("	ACC = $%02X / X = $%02X / Y = $%02X\n", a, x, y);
-			System.out.printf("	NV-B DIZC (PROCESSOR STATUS FLAGS)\n");
+			System.out.print("	NV-B DIZC (PROCESSOR STATUS FLAGS)\n");
 			System.out.printf("	%s\n\n", asBinary(status, 8));
 		}
 
 		if (debug)
-			System.out.printf("Fetching new instruction!\n");
-		penaltyOP = false;
-		penaltyADDR = false;
+			System.out.print("Fetching new instruction!\n");
 
 		opcode = to8b(mapper.read(pc, true));
 		incPC();
@@ -1786,12 +1654,6 @@ public class Chip65C02 {
 		a.calcAddress(this);
 		codes[opcode].execute(this, modes[opcode]);
 
-		clockCycles = delays[opcode];
-
-		if (penaltyADDR && penaltyOP) clockCycles++;
-
-		if (debug)
-			System.out.printf("Total delay = %d clock cycles!\n", clockCycles);
 		return true;
 	}
 
@@ -1904,14 +1766,14 @@ public class Chip65C02 {
 
 	// Print as binary
 	public static String asBinary(int value, int bits) {
-		String result = "";
+		StringBuilder result = new StringBuilder();
 		int mask = 1 << bits;
 		for (int i = 0; i < bits; i++) {
 			value <<= 1;
-			result += ((value & mask) != 0)? "1": "0";
-			if ((i & 3) == 3) result += " ";
+			result.append(((value & mask) != 0) ? "1" : "0");
+			if ((i & 3) == 3) result.append(" ");
 		}
-		return result;
+		return result.toString();
 	}
 
 	// OP codes and addressing modes
@@ -1975,26 +1837,6 @@ public class Chip65C02 {
 		) c.pc = toU16b(c.pc + 2);
 		else c.penaltyOP = false;
 	*/
-
-
-	private static final int[] delays = {
-		7, 6, 2, 1, 5, 3, 5, 5, 3, 2, 2, 1, 6, 4, 6, 5, 
-		2, 5, 5, 1, 5, 4, 6, 5, 2, 4, 2, 1, 6, 4, 6, 5, 
-		6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 4, 4, 6, 5, 
-		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 2, 1, 4, 4, 6, 5, 
-		6, 6, 2, 1, 3, 3, 5, 5, 3, 2, 2, 1, 3, 4, 6, 5, 
-		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 3, 1, 8, 4, 6, 5, 
-		6, 6, 2, 1, 3, 3, 5, 5, 4, 2, 2, 1, 6, 4, 6, 5, 
-		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 4, 1, 6, 4, 6, 5, 
-		3, 6, 2, 1, 3, 3, 3, 5, 2, 2, 2, 1, 4, 4, 4, 5, 
-		2, 6, 5, 1, 4, 4, 4, 5, 2, 5, 2, 1, 4, 5, 5, 5, 
-		2, 6, 2, 1, 3, 3, 3, 5, 2, 2, 2, 1, 4, 4, 4, 5, 
-		2, 5, 5, 1, 4, 4, 4, 5, 2, 4, 2, 1, 4, 4, 4, 5, 
-		2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 3, 4, 4, 6, 5, 
-		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 3, 3, 4, 4, 7, 5, 
-		2, 6, 2, 1, 3, 3, 5, 5, 2, 2, 2, 1, 4, 4, 6, 5, 
-		2, 5, 5, 1, 4, 4, 6, 5, 2, 4, 4, 1, 4, 4, 7, 5, 
-	};
 }
 
 /*
