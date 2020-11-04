@@ -2,7 +2,7 @@
 screen = $0200
 
 ; .org $0300
-; .text "If you are viewing this, you are very very very gay kk"
+; .text "If you are viewing this, you are very very very cool"
 
  .org $0400
  .text "Also, áàãâäéèêëíìîïóòôöõúùûüçý¡²³¤€¼½¾‘’¥×äåé®þüúíóöáßðø¶´«»¬æ©ñç¿"
