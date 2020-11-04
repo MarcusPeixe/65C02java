@@ -9,9 +9,9 @@ res:
 res_loop1:
  cli
  jsr cls
- lda #<pixelart2
+ lda #<pixelart1
  sta <draw_spr
- lda #>pixelart2
+ lda #>pixelart1
  sta >draw_spr
  jsr draw
  inc draw_x
