@@ -1,10 +1,10 @@
-# 65C02java
+# 65C02 JAVA EMULATOR
 
-== EMULATOR COMPLETED ==
-Currently it was only tested with Klaus Dormann's test suite, and it passed 
+### EMULATOR COMPLETED:
+* Emulator fully functional.
 
-== GRAPHICAL USER INTERFACE (WIP) ==
-Currently developing the GUI
+### GRAPHICAL USER INTERFACE COMPLETED:
+* Complete GUI.
 
-== ASSEMBLER (WIP) ==
-Creating a simple assembler for this emulator
+### ASSEMBLER COMPLETED:
+* This program comes with its own complete assembler.
