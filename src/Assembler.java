@@ -1344,7 +1344,7 @@ class CodeGenerator {
                                     throw new ParseException("Invalid argument for indirect,y addressing mode (too large)", offset);
                                 break;
                             case ZPR:
-                                // TODO: support for these instructions
+                                // To do: support for these instructions
                                 if (instExists(opcode.toString(), ASTinstr.AddrMode.ZPR)) {
                                     // BB*b $XX,label
                                     size = 2;
