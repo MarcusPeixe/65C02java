@@ -122,8 +122,11 @@ class Token {
 
     public static List<Token> tokenise(String s) throws ParseException {
         List<Token> tokens = new ArrayList<>();
+//        String completeRegex =
+//                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|,[xXyY]\\b|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
+//                        + "\\.?[\\w.]+:|\\.[\\w.]+|\\$[0-9a-fA-F]{1,4}\\b|\\b\\d+\\b|\\b[\\w.]+)";
         String completeRegex =
-                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|,[xXyY]\\b|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
+                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
                         + "\\.?[\\w.]+:|\\.[\\w.]+|\\$[0-9a-fA-F]{1,4}\\b|\\b\\d+\\b|\\b[\\w.]+)";
         Pattern tokenPattern = Pattern.compile(completeRegex);
         Matcher tokeniser = tokenPattern.matcher(s);
@@ -343,8 +346,8 @@ class Token {
         int offset = e.getErrorOffset();
 
         String completeRegex =
-                "\\s*(;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|,[xXyY]|%[01_]+|[()+\\-/*|&^#,=<>%]|\\.?[\\w.]+:|\\.[\\w.]+|"
-                        + "\\$[0-9a-fA-F]{1,4}|\\b\\d+|\\b[\\w.]+)";
+                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
+                        + "\\.?[\\w.]+:|\\.[\\w.]+|\\$[0-9a-fA-F]{1,4}\\b|\\b\\d+\\b|\\b[\\w.]+)";
         Pattern tokenPattern = Pattern.compile(completeRegex);
         Matcher tokeniser = tokenPattern.matcher(s);
         if (!tokeniser.find(offset) || offset >= s.length()) {
@@ -1163,6 +1166,7 @@ class Parser {
                 e = parseExp();
                 if (peek().is(',') && peek(1).isRegY()) {
                     consume();
+                    consume();
 //                    System.out.printf("%s: indY %s\n", t, e);
                     m = ASTinstr.AddrMode.INY;
                 }
@@ -1182,6 +1186,7 @@ class Parser {
                 e = parseExp();
                 if (peek().is(',') && peek(1).isRegX()) {
                     consume();
+                    consume();
                     if (peek().is(")")) {
                         consume();
 //                        System.out.printf("%s: indX %s\n", t, e);
@@ -1200,10 +1205,12 @@ class Parser {
 //                System.out.printf("%s: absX %s\n", t, e);
                 m = ASTinstr.AddrMode.ABX;
                 consume();
+                consume();
             }
             else if (peek().is(',') && peek(1).isRegY()) {
 //                System.out.printf("%s: absY %s\n", t, e);
                 m = ASTinstr.AddrMode.ABY;
+                consume();
                 consume();
             }
             else if (peek().is(',')) {
