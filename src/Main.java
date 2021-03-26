@@ -12,7 +12,7 @@ public class Main extends Application {
         Parent root = loader.load();
         Controller controller = loader.getController();
         primaryStage.setTitle("65C02 Emulator");
-        primaryStage.setScene(new Scene(root, 1300, 800));
+        primaryStage.setScene(new Scene(root, 1400, 800));
         primaryStage.setOnCloseRequest(handler -> controller.onClose());
         primaryStage.show();
     }

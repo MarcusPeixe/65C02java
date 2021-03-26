@@ -4,10 +4,7 @@ import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.*;
 import javafx.scene.input.*;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
@@ -73,8 +70,8 @@ public class Controller implements Mapper {
 
         gc = screen.getGraphicsContext2D();
         gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, 320, 320);
-        gc.setFont(new Font(10));
+        gc.fillRect(0, 0, 480, 480);
+        gc.setFont(new Font(15));
 
         loop = new AnimationTimer()
         {
@@ -118,8 +115,14 @@ public class Controller implements Mapper {
             updateMonitor();
         });
 
+        showDisassembly.selectedProperty().addListener((observable, oldValue, newValue) -> {
+            monitorChanged = true;
+            updateMonitor();
+        });
+
         screenChanged = false;
-        monitorChanged = false;
+        monitorChanged = true;
+        updateMonitor();
         lastDir = null;
 
         try {
@@ -217,9 +220,9 @@ public class Controller implements Mapper {
         int x = offset % 32, y = offset / 32;
         Paint colour = Color.rgb(r, g, b);
         gc.setFill(colour);
-        gc.fillRect(x * 10, y * 10, 10, 10);
+        gc.fillRect(x * 15, y * 15, 15, 15);
         gc.setFill(Color.WHITE);
-        gc.fillText(c + "", x * 10, y * 10 + 8);
+        gc.fillText(c + "", x * 15, y * 15 + 13, 15);
     }
 
     private void loadFileToCode(File file) {
@@ -410,26 +413,32 @@ public class Controller implements Mapper {
     private Slider monitorSlider;
 
     @FXML
-    void nmiTrigger(ActionEvent event) {
+    private CheckBox keyIRQ;
+
+    @FXML
+    private CheckBox showDisassembly;
+
+    @FXML
+    void nmiTrigger() {
         chip.setNonMaskableInterrupt(true);
-        console.appendText("NMI trigger!\n");
+        console.appendText("NMI triggered!\n");
     }
 
     @FXML
-    void irqTrigger(ActionEvent event) {
+    void irqTrigger() {
         chip.setInterruptRequest(true);
-        console.appendText("IRQ trigger!\n");
+        console.appendText("IRQ triggered!\n");
     }
 
     @FXML
-    void resTrigger(ActionEvent event) {
+    void resTrigger() {
         chip.setReset(true);
 //        System.out.printf("RESET SET! ready = %s\n", chip.getReady());
-        console.appendText("RES trigger!\n");
+        console.appendText("RES triggered!\n");
     }
 
     @FXML
-    void loadImageToMemory() {
+    void loadImageToMemory(ActionEvent event) {
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, 320, 320);
 //        Process process;
@@ -503,22 +512,23 @@ public class Controller implements Mapper {
         catch (ParseException e) {
             console.setText(Token.printLineError(code, e));
         }
-        stopCode(null);
-        resTrigger(null);
+        stopCode();
+        resTrigger();
         screenChanged = true;
         updateMonitor();
         display();
+        event.consume();
     }
 
     @FXML
-    void runCode(ActionEvent event) {
+    void runCode() {
         chip.setReady(true);
         loop.start();
         irqCounter = (int) periodic.getValue();
     }
 
     @FXML
-    void stepCode(ActionEvent event) {
+    void stepCode() {
         chip.setReady(true);
         executeInstruction(1);
         state();
@@ -527,12 +537,22 @@ public class Controller implements Mapper {
     private void updateMonitor() {
         if (!monitorChanged) return;
         monitor.clear();
-        for (int i = 0; i < 0x10; i++) {
-            monitor.appendText(String.format("$%04X: ", (i << 4) + monitorOffset));
-            for (int j = 0; j < 0x10; j++) {
-                monitor.appendText(String.format("%02X ", ram[(i << 4 | j) + monitorOffset]));
+        if (showDisassembly.isSelected()) {
+            monitor.appendText("Work in progress.\n");
+        }
+        else {
+            for (int i = 0; i < 0x10; i++) {
+                monitor.appendText(String.format("$%04X: ", (i << 4) + monitorOffset));
+                for (int j = 0; j < 0x10; j++) {
+                    monitor.appendText(String.format("%02X", ram[(i << 4 | j) + monitorOffset]));
+                    if (j < 0xf) {
+                        monitor.appendText(" ");
+                    }
+                }
+                if (i < 0xf) {
+                    monitor.appendText("\n");
+                }
             }
-            monitor.appendText("\n");
         }
     }
 
@@ -546,7 +566,7 @@ public class Controller implements Mapper {
     }
 
     @FXML
-    void stopCode(ActionEvent event) {
+    void stopCode() {
         chip.setReady(false);
         loop.stop();
 //        imageNotLoaded = true;
@@ -591,6 +611,9 @@ public class Controller implements Mapper {
         console.appendText(String.format(
                 "Key code: %d\n", c
         ));
+        if (keyIRQ.isSelected()) {
+            irqTrigger();
+        }
     }
 
     @FXML
