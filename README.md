@@ -7,7 +7,7 @@
 * Emulator fully functional.
 
 ### GRAPHICAL USER INTERFACE COMPLETED:
-* Complete GUI.
+* Complete GUI, written in JavaFX.
 
 ### ASSEMBLER COMPLETED:
 * This program comes with its own complete assembler.
