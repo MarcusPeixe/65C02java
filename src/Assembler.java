@@ -376,8 +376,8 @@ class Token {
 
         String lineStr = lines[line - 1];
         try {
-            String before = lineStr.substring(0, column);
-            String after = lineStr.substring(column + length);
+            String before = lineStr.substring(0, column).replace('\t', ' ');
+            String after = lineStr.substring(column + length).replace('\t', ' ');
             err.append(String.format("%s%s%s\n", before, t, after));
             for (int i = 0; i < column; i++) {
                 err.append(' ');
@@ -1092,7 +1092,7 @@ class Parser {
             else if (t.isIdentifier()) {
                 consume();
                 if (!peek().is('=')) {
-                    throw new ParseException("Expected = after identifier", t.offset);
+                    throw new ParseException("Expected = after identifier", peek().offset);
                 }
                 consume();
                 ASTexp e = parseExp();
@@ -1164,20 +1164,6 @@ class Parser {
             save();
             try {
                 e = parseExp();
-                if (peek().is(',') && peek(1).isRegY()) {
-                    consume();
-                    consume();
-//                    System.out.printf("%s: indY %s\n", t, e);
-                    m = ASTinstr.AddrMode.INY;
-                }
-                else if (peek(-1).is(")")) {
-//                    System.out.printf("%s: ind %s\n", t, e);
-                    m = ASTinstr.AddrMode.IND;
-                }
-                else {
-//                    System.out.printf("%s: abs %s\n", t, e);
-                    m = ASTinstr.AddrMode.ABS;
-                }
             }
             catch (ParseException ex) {
 //                System.out.println("Failed prediction, restoring old context...");
@@ -1192,11 +1178,32 @@ class Parser {
 //                        System.out.printf("%s: indX %s\n", t, e);
                         m = ASTinstr.AddrMode.INX;
                     }
-                    else throw new ParseException("Expected )", t.offset);
+                    else throw new ParseException("Expected )", peek().offset);
+                }
+                else if (peek().is(',') && peek(1).isRegY()) {
+                    throw new ParseException("Invalid indexed mode", peek(1).offset);
                 }
                 else {
-                    throw new ParseException("Unexpected token", t.offset);
+                    throw new ParseException("Unexpected token", peek().offset);
                 }
+                return new ASTinstr(t, e, m);
+            }
+            if (peek().is(',') && peek(1).isRegY()) {
+                consume();
+                consume();
+//                    System.out.printf("%s: indY %s\n", t, e);
+                m = ASTinstr.AddrMode.INY;
+            }
+            else if (peek().is(',') && peek(1).isRegX()) {
+                throw new ParseException("Invalid indexed mode", peek(1).offset);
+            }
+            else if (peek(-1).is(")")) {
+//                    System.out.printf("%s: ind %s\n", t, e);
+                m = ASTinstr.AddrMode.IND;
+            }
+            else {
+//                    System.out.printf("%s: abs %s\n", t, e);
+                m = ASTinstr.AddrMode.ABS;
             }
         }
         else {
