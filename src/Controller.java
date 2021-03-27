@@ -577,6 +577,12 @@ public class Controller implements Mapper {
     }
 
     @FXML
+    void monitorScroll(ScrollEvent event) {
+        double blocks = event.getDeltaY() * monitorSlider.getBlockIncrement() / event.getMultiplierY();
+        monitorSlider.setValue(monitorSlider.getValue() + blocks);
+    }
+
+    @FXML
     void highlight(DragEvent event) {
 //        codeEditor.setStyle("-fx-font-family: monospace; -fx-border-color: blue; -fx-border-width: 3; -fx-border-radius: 10; -fx-control-inner-background: black; -fx-text-fill: white; -fx-font-size: 16; -fx-prompt-text-fill: gray; -fx-highlight-fill: orange;");
         codeEditor.setStyle("-fx-font-family: monospace; -fx-border-color: lime; -fx-border-width: 10; -fx-border-radius: 10; -fx-control-inner-background: black; -fx-text-fill: white; -fx-font-size: 16; -fx-prompt-text-fill: gray; -fx-highlight-fill: orange;");
