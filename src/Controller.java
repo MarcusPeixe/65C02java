@@ -257,16 +257,16 @@ public class Controller implements Mapper {
 //                linebreak++;
 //                text += literal;
 //            }
-            console.setText(String.format("Text loaded from file \"%s\".\n", file.toString()));
+            console.setText(String.format("Text loaded from file \"%s\".\n", file));
             codeEditor.setText(text.toString());
             input.close();
         }
         catch (FileNotFoundException e) {
-            console.setText(String.format("Error! File \"%s\" not found!\n", file.toString()));
+            console.setText(String.format("Error! File \"%s\" not found!\n", file));
             e.printStackTrace();
         }
         catch (IOException e) {
-            console.setText(String.format("Error reading \"%s\".\n", file.toString()));
+            console.setText(String.format("Error reading \"%s\".\n", file));
             e.printStackTrace();
         }
     }
@@ -286,7 +286,7 @@ public class Controller implements Mapper {
             output.close();
         }
         catch (IOException e) {
-            console.setText(String.format("Error! File \"%s\" not found!", file.toString()));
+            console.setText(String.format("Error! File \"%s\" not found!", file));
             e.printStackTrace();
         }
     }
@@ -441,69 +441,7 @@ public class Controller implements Mapper {
     void loadImageToMemory(ActionEvent event) {
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, 320, 320);
-//        Process process;
-//        byte[] binary;
-//        try {
-//            File source = new File("out/temp/input.s");
-//            saveFileFromCode(source);
-//            process = new ProcessBuilder(
-//                    "out/production/65C02java-master/sample/vasm6502_oldstyle.exe",
-//                    "-Fbin",
-//                    "-chklabels",
-//                    "-wdc02",
-//                    "-esc",
-//                    "-opt-branch",
-//                    "-dotdir",
-//                    "out/temp/input.s",
-//                    "-o",
-//                    "out/temp/output.out"
-//            ).start();
-//            process.waitFor();
-//            int exitStatus = process.exitValue();
-//            if (exitStatus != 0) {
-////                byte[] out = process.getInputStream().readAllBytes();
-//                byte[] err = process.getErrorStream().readAllBytes();
-//                console.setText(String.format(
-//                        "Exit code: %d\nErrors:\n%s\n", exitStatus, new String(err)
-//                ));
-//                return;
-//            }
-//            binary = (new FileInputStream(new File("out/temp/output.out"))).readAllBytes();
-//            console.setText(String.format(
-//                    "Assembly successful! %d (0x%04X) bytes.\n", binary.length, binary.length
-//            ));
-//        }
-//        catch (Exception e) {
-//            console.setText(String.format(
-//                    "Assembly failed :(\nException:\n%s\n", e.toString()
-//            ));
-//            return;
-//        }
-//        if (binary.length == 0x10000) {
-//            for (int i = 0; i < 0x10000; i++) {
-//                ram[i] = (int) binary[i] & 0xFF;
-//            }
-//        }
-//        else if (binary.length + 0x0600 <= 0x10000) {
-//            for (int i = 0; i < 0x10000; i++) {
-//                ram[i] = 0x00;
-//            }
-//            ram[0xFFFA] = 0x00;
-//            ram[0xFFFB] = 0x06;
-//            ram[0xFFFC] = 0x00;
-//            ram[0xFFFD] = 0x06;
-//            ram[0xFFFE] = 0x00;
-//            ram[0xFFFF] = 0x06;
-//            for (int i = 0; i < binary.length; i++) {
-//                ram[i + 0x0600] = (int) binary[i] & 0xFF;
-//            }
-//        }
-//        else {
-//            console.appendText(String.format(
-//                    "Error while loading binary! Code too big. Expected %d (0x%04X) bytes, found %d (0x%04X).\n",
-//                    0x10000, 0x10000, binary.length + 0x0600, binary.length + 0x0600
-//            ));
-//        }
+
         String code = codeEditor.getText();
         try {
             ram = Assembler.assemble(code);

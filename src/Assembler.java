@@ -112,7 +112,7 @@ class Token {
     ).collect(Collectors.toCollection(HashSet::new));
 
     final static HashSet<String> directives = Stream.of(
-            ".ORG", ".TEXT", ".STRING", ".WORD", ".BYTE"
+            ".ORG", ".TEXT", ".STRING", ".WORD", ".BYTE", ".DATA"
     ).collect(Collectors.toCollection(HashSet::new));
 
     public Token (String value, int offset) {
@@ -316,7 +316,7 @@ class Token {
     }
 
     public boolean is(String s) {
-        return value.toLowerCase().equals(s.toLowerCase());
+        return value.equalsIgnoreCase(s);
     }
 
     public boolean is(char c) {
@@ -589,20 +589,20 @@ class ASTbranch extends ASTnode {
         return size;
     }
     public void addBytes(CodeGenerator gen, ASTblock scope, ASTroot root) {
-        int jmp = gen.getInstCode("JMP", ASTinstr.AddrMode.ABS);
+        int jmp = CodeGenerator.getInstCode("JMP", ASTinstr.AddrMode.ABS);
         ExpVal v = param.calcValue(gen.pc, scope, root);
         int num = v.getInt();
         if (mode == ASTinstr.AddrMode.REL) {
             if (!replaced.is("BRA")) {
                 String opp = getOpposite(replaced.toString());
-                int code = gen.getInstCode(opp, ASTinstr.AddrMode.REL);
+                int code = CodeGenerator.getInstCode(opp, ASTinstr.AddrMode.REL);
                 gen.add(code, 3);
             }
             gen.add(jmp, num & 0xFF, num >>> 8);
         }
         else {
             String opp = getOpposite(replaced.toString());
-            int code = gen.getInstCode(opp, ASTinstr.AddrMode.ZPR);
+            int code = CodeGenerator.getInstCode(opp, ASTinstr.AddrMode.ZPR);
             int l = (v.getString().charAt(2) << 8) | v.getString().charAt(1);
             gen.add(code, num & 0xFF, 3);
             gen.add(jmp, l & 0xFF, l >>> 8);
@@ -662,6 +662,9 @@ class ASTop0 extends ASTexp {
         else if (num.isStringLiteral()) {
             return num.getStringLiteral().length();
         }
+        else if (CodeGenerator.instConstantExists(num.value)) {
+            return 1;
+        }
         else if (num.isLocal() && root.labels.containsKey(scope.name + num.value)) {
             return 2;
         }
@@ -685,6 +688,7 @@ class ASTop0 extends ASTexp {
 //        System.out.println(scope.name + " -> " + num.value);
         try {
             if (num.is('*')) {
+//                System.out.println("Location: " + location);
                 return new ExpVal(location, calcSize(scope, root));
             }
             else if (num.isNumber()) {
@@ -692,6 +696,9 @@ class ASTop0 extends ASTexp {
             }
             else if (num.isStringLiteral()) {
                 return new ExpVal(num.getStringLiteral());
+            }
+            else if (CodeGenerator.instConstantExists(num.value)) {
+                return new ExpVal(CodeGenerator.getInstConstantCode(num.value), 1);
             }
             else if (num.isLocal() && root.labels.containsKey(scope.name + num.value)) {
                 return new ExpVal(((ASTlabel) root.labels.get(scope.name + num.value)).address,
@@ -725,7 +732,13 @@ class ASTop0 extends ASTexp {
         if (num.isNumber()) {
             return true;
         }
+        else if (num.is('*')) {
+            return true;
+        }
         else if (num.isStringLiteral()) {
+            return true;
+        }
+        else if (CodeGenerator.instConstantExists(num.value)) {
             return true;
         }
         else if (num.isLocal() && root.labels.containsKey(scope.name + num.value)) {
@@ -1096,22 +1109,19 @@ class Parser {
                 }
                 consume();
                 ASTexp e = parseExp();
+                String name;
                 if (t.isLocal()) {
-                    String name = currentLabel.name + t.toString();
+                    name = currentLabel.name + t;
 //                    System.out.printf("Local symbol '%s' defined as: %s\n", name, e);
-                    if (root.defined(name)) {
-                        throw new ParseException("Name already defined somewhere else", t.offset);
-                    }
-                    root.declare(t, name, e, currentLabel);
                 }
                 else {
-                    String name = t.toString();
+                    name = t.toString();
 //                    System.out.printf("Symbol '%s' defined as: %s\n", name, e);
-                    if (root.defined(name)) {
-                        throw new ParseException("Name already defined somewhere else", t.offset);
-                    }
-                    root.declare(t, name, e, currentLabel);
                 }
+                if (root.defined(name)) {
+                    throw new ParseException("Name already defined somewhere else", t.offset);
+                }
+                root.declare(t, name, e, currentLabel);
             }
             else {
                 throw new ParseException("Unexpected token", t.offset);
@@ -1236,7 +1246,15 @@ class Parser {
 
     public List<ASTexp> parseArgs() throws ParseException {
         List<ASTexp> argv = new ArrayList<>();
-        argv.add(parseExp());
+        save();
+        try {
+            argv.add(parseExp());
+        }
+        catch (ParseException ignored) {
+//            System.out.println("No args found, restoring...");
+            restore();
+            return argv;
+        }
         while (peek().is(',')) {
             consume();
             argv.add(parseExp());
@@ -1334,7 +1352,7 @@ class Parser {
             consume();
             return new ASTop1(e, ASTop1.ExpOp.PAR);
         }
-        else if (peek().isValue() || peek().is('*')) {
+        else if ((peek().isValue() && !peek(1).is('=') && !peek().isEndOfLine()) || peek().is('*')) {
             Token num = peek();
             consume();
             return new ASTop0(num);
@@ -1392,262 +1410,262 @@ class CodeGenerator {
 
     private static Map<String, Integer> initMap() {
         final List<String> opcodeList = Stream.of(
-                "brk IMP",
-                "ora IZX",
-                "nop IMM",
-                "nop IMP",
-                "tsb ZPG",
-                "ora ZPG",
-                "asl ZPG",
-                "rmb0 ZPG",
-                "php IMP",
-                "ora IMM",
-                "asl IMP",
-                "nop IMP",
-                "tsb ABS",
-                "ora ABS",
-                "asl ABS",
-                "bbr0 ZPR",
-                "bpl REL",
-                "ora IZY",
-                "ora IZP",
-                "nop IMP",
-                "trb ZPG",
-                "ora ZPX",
-                "asl ZPX",
-                "rmb1 ZPG",
-                "clc IMP",
-                "ora ABY",
-                "inc IMP",
-                "nop IMP",
-                "trb ABS",
-                "ora ABX",
-                "asl ABX",
-                "bbr1 ZPR",
-                "jsr ABS",
-                "and IZX",
-                "nop IMM",
-                "nop IMP",
-                "bit ZPG",
-                "and ZPG",
-                "rol ZPG",
-                "rmb2 ZPG",
-                "plp IMP",
-                "and IMM",
-                "rol IMP",
-                "nop IMP",
-                "bit ABS",
-                "and ABS",
-                "rol ABS",
-                "bbr2 ZPR",
-                "bmi REL",
-                "and IZY",
-                "and IZP",
-                "nop IMP",
-                "bit ZPX",
-                "and ZPX",
-                "rol ZPX",
-                "rmb3 ZPG",
-                "sec IMP",
-                "and ABY",
-                "dec IMP",
-                "nop IMP",
-                "bit ABX",
-                "and ABX",
-                "rol ABX",
-                "bbr3 ZPR",
-                "rti IMP",
-                "eor IZX",
-                "nop IMM",
-                "nop IMP",
-                "nop ZPG",
-                "eor ZPG",
-                "lsr ZPG",
-                "rmb4 ZPG",
-                "pha IMP",
-                "eor IMM",
-                "lsr IMP",
-                "nop IMP",
-                "jmp ABS",
-                "eor ABS",
-                "lsr ABS",
-                "bbr4 ZPR",
-                "bvc REL",
-                "eor IZY",
-                "eor IZP",
-                "nop IMP",
-                "nop ZPX",
-                "eor ZPX",
-                "lsr ZPX",
-                "rmb5 ZPG",
-                "cli IMP",
-                "eor ABY",
-                "phy IMP",
-                "nop IMP",
-                "nop ABS",
-                "eor ABX",
-                "lsr ABX",
-                "bbr5 ZPR",
-                "rts IMP",
-                "adc IZX",
-                "nop IMM",
-                "nop IMP",
-                "stz ZPG",
-                "adc ZPG",
-                "ror ZPG",
-                "rmb6 ZPG",
-                "pla IMP",
-                "adc IMM",
-                "ror IMP",
-                "nop IMP",
-                "jmp IND",
-                "adc ABS",
-                "ror ABS",
-                "bbr6 ZPR",
-                "bvs REL",
-                "adc IZY",
-                "adc IZP",
-                "nop IMP",
-                "stz ZPX",
-                "adc ZPX",
-                "ror ZPX",
-                "rmb7 ZPG",
-                "sei IMP",
-                "adc ABY",
-                "ply IMP",
-                "nop IMP",
-                "jmp INX",
-                "adc ABX",
-                "ror ABX",
-                "bbr7 ZPR",
-                "bra REL",
-                "sta IZX",
-                "nop IMM",
-                "nop IMP",
-                "sty ZPG",
-                "sta ZPG",
-                "stx ZPG",
-                "smb0 ZPG",
-                "dey IMP",
-                "bit IMM",
-                "txa IMP",
-                "nop IMP",
-                "sty ABS",
-                "sta ABS",
-                "stx ABS",
-                "bbs0 ZPR",
-                "bcc REL",
-                "sta IZY",
-                "sta IZP",
-                "nop IMP",
-                "sty ZPX",
-                "sta ZPX",
-                "stx ZPY",
-                "smb1 ZPG",
-                "tya IMP",
-                "sta ABY",
-                "txs IMP",
-                "nop IMP",
-                "stz ABS",
-                "sta ABX",
-                "stz ABX",
-                "bbs1 ZPR",
-                "ldy IMM",
-                "lda IZX",
-                "ldx IMM",
-                "nop IMP",
-                "ldy ZPG",
-                "lda ZPG",
-                "ldx ZPG",
-                "smb2 ZPG",
-                "tay IMP",
-                "lda IMM",
-                "tax IMP",
-                "nop IMP",
-                "ldy ABS",
-                "lda ABS",
-                "ldx ABS",
-                "bbs2 ZPR",
-                "bcs REL",
-                "lda IZY",
-                "lda IZP",
-                "nop IMP",
-                "ldy ZPX",
-                "lda ZPX",
-                "ldx ZPY",
-                "smb3 ZPG",
-                "clv IMP",
-                "lda ABY",
-                "tsx IMP",
-                "nop IMP",
-                "ldy ABX",
-                "lda ABX",
-                "ldx ABY",
-                "bbs3 ZPR",
-                "cpy IMM",
-                "cmp IZX",
-                "nop IMM",
-                "nop IMP",
-                "cpy ZPG",
-                "cmp ZPG",
-                "dec ZPG",
-                "smb4 ZPG",
-                "iny IMP",
-                "cmp IMM",
-                "dex IMP",
-                "wai IMP",
-                "cpy ABS",
-                "cmp ABS",
-                "dec ABS",
-                "bbs4 ZPR",
-                "bne REL",
-                "cmp IZY",
-                "cmp IZP",
-                "nop IMP",
-                "nop ZPX",
-                "cmp ZPX",
-                "dec ZPX",
-                "smb5 ZPG",
-                "cld IMP",
-                "cmp ABY",
-                "phx IMP",
-                "stp IMP",
-                "nop ABS",
-                "cmp ABX",
-                "dec ABX",
-                "bbs5 ZPR",
-                "cpx IMM",
-                "sbc IZX",
-                "nop IMM",
-                "nop IMP",
-                "cpx ZPG",
-                "sbc ZPG",
-                "inc ZPG",
-                "smb6 ZPG",
-                "inx IMP",
-                "sbc IMM",
-                "nop IMP",
-                "nop IMP",
-                "cpx ABS",
-                "sbc ABS",
-                "inc ABS",
-                "bbs6 ZPR",
-                "beq REL",
-                "sbc IZY",
-                "sbc IZP",
-                "nop IMP",
-                "nop ZPX",
-                "sbc ZPX",
-                "inc ZPX",
-                "smb7 ZPG",
-                "sed IMP",
-                "sbc ABY",
-                "plx IMP",
-                "nop IMP",
-                "nop ABS",
-                "sbc ABX",
-                "inc ABX",
-                "bbs7 ZPR"
+                "_BRK_IMP",
+                "_ORA_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_TSB_ZPG",
+                "_ORA_ZPG",
+                "_ASL_ZPG",
+                "_RMB0_ZPG",
+                "_PHP_IMP",
+                "_ORA_IMM",
+                "_ASL_IMP",
+                "_NOP_IMP",
+                "_TSB_ABS",
+                "_ORA_ABS",
+                "_ASL_ABS",
+                "_BBR0_ZPR",
+                "_BPL_REL",
+                "_ORA_IZY",
+                "_ORA_IZP",
+                "_NOP_IMP",
+                "_TRB_ZPG",
+                "_ORA_ZPX",
+                "_ASL_ZPX",
+                "_RMB1_ZPG",
+                "_CLC_IMP",
+                "_ORA_ABY",
+                "_INC_IMP",
+                "_NOP_IMP",
+                "_TRB_ABS",
+                "_ORA_ABX",
+                "_ASL_ABX",
+                "_BBR1_ZPR",
+                "_JSR_ABS",
+                "_AND_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_BIT_ZPG",
+                "_AND_ZPG",
+                "_ROL_ZPG",
+                "_RMB2_ZPG",
+                "_PLP_IMP",
+                "_AND_IMM",
+                "_ROL_IMP",
+                "_NOP_IMP",
+                "_BIT_ABS",
+                "_AND_ABS",
+                "_ROL_ABS",
+                "_BBR2_ZPR",
+                "_BMI_REL",
+                "_AND_IZY",
+                "_AND_IZP",
+                "_NOP_IMP",
+                "_BIT_ZPX",
+                "_AND_ZPX",
+                "_ROL_ZPX",
+                "_RMB3_ZPG",
+                "_SEC_IMP",
+                "_AND_ABY",
+                "_DEC_IMP",
+                "_NOP_IMP",
+                "_BIT_ABX",
+                "_AND_ABX",
+                "_ROL_ABX",
+                "_BBR3_ZPR",
+                "_RTI_IMP",
+                "_EOR_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_NOP_ZPG",
+                "_EOR_ZPG",
+                "_LSR_ZPG",
+                "_RMB4_ZPG",
+                "_PHA_IMP",
+                "_EOR_IMM",
+                "_LSR_IMP",
+                "_NOP_IMP",
+                "_JMP_ABS",
+                "_EOR_ABS",
+                "_LSR_ABS",
+                "_BBR4_ZPR",
+                "_BVC_REL",
+                "_EOR_IZY",
+                "_EOR_IZP",
+                "_NOP_IMP",
+                "_NOP_ZPX",
+                "_EOR_ZPX",
+                "_LSR_ZPX",
+                "_RMB5_ZPG",
+                "_CLI_IMP",
+                "_EOR_ABY",
+                "_PHY_IMP",
+                "_NOP_IMP",
+                "_NOP_ABS",
+                "_EOR_ABX",
+                "_LSR_ABX",
+                "_BBR5_ZPR",
+                "_RTS_IMP",
+                "_ADC_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_STZ_ZPG",
+                "_ADC_ZPG",
+                "_ROR_ZPG",
+                "_RMB6_ZPG",
+                "_PLA_IMP",
+                "_ADC_IMM",
+                "_ROR_IMP",
+                "_NOP_IMP",
+                "_JMP_IND",
+                "_ADC_ABS",
+                "_ROR_ABS",
+                "_BBR6_ZPR",
+                "_BVS_REL",
+                "_ADC_IZY",
+                "_ADC_IZP",
+                "_NOP_IMP",
+                "_STZ_ZPX",
+                "_ADC_ZPX",
+                "_ROR_ZPX",
+                "_RMB7_ZPG",
+                "_SEI_IMP",
+                "_ADC_ABY",
+                "_PLY_IMP",
+                "_NOP_IMP",
+                "_JMP_INX",
+                "_ADC_ABX",
+                "_ROR_ABX",
+                "_BBR7_ZPR",
+                "_BRA_REL",
+                "_STA_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_STY_ZPG",
+                "_STA_ZPG",
+                "_STX_ZPG",
+                "_SMB0_ZPG",
+                "_DEY_IMP",
+                "_BIT_IMM",
+                "_TXA_IMP",
+                "_NOP_IMP",
+                "_STY_ABS",
+                "_STA_ABS",
+                "_STX_ABS",
+                "_BBS0_ZPR",
+                "_BCC_REL",
+                "_STA_IZY",
+                "_STA_IZP",
+                "_NOP_IMP",
+                "_STY_ZPX",
+                "_STA_ZPX",
+                "_STX_ZPY",
+                "_SMB1_ZPG",
+                "_TYA_IMP",
+                "_STA_ABY",
+                "_TXS_IMP",
+                "_NOP_IMP",
+                "_STZ_ABS",
+                "_STA_ABX",
+                "_STZ_ABX",
+                "_BBS1_ZPR",
+                "_LDY_IMM",
+                "_LDA_IZX",
+                "_LDX_IMM",
+                "_NOP_IMP",
+                "_LDY_ZPG",
+                "_LDA_ZPG",
+                "_LDX_ZPG",
+                "_SMB2_ZPG",
+                "_TAY_IMP",
+                "_LDA_IMM",
+                "_TAX_IMP",
+                "_NOP_IMP",
+                "_LDY_ABS",
+                "_LDA_ABS",
+                "_LDX_ABS",
+                "_BBS2_ZPR",
+                "_BCS_REL",
+                "_LDA_IZY",
+                "_LDA_IZP",
+                "_NOP_IMP",
+                "_LDY_ZPX",
+                "_LDA_ZPX",
+                "_LDX_ZPY",
+                "_SMB3_ZPG",
+                "_CLV_IMP",
+                "_LDA_ABY",
+                "_TSX_IMP",
+                "_NOP_IMP",
+                "_LDY_ABX",
+                "_LDA_ABX",
+                "_LDX_ABY",
+                "_BBS3_ZPR",
+                "_CPY_IMM",
+                "_CMP_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_CPY_ZPG",
+                "_CMP_ZPG",
+                "_DEC_ZPG",
+                "_SMB4_ZPG",
+                "_INY_IMP",
+                "_CMP_IMM",
+                "_DEX_IMP",
+                "_WAI_IMP",
+                "_CPY_ABS",
+                "_CMP_ABS",
+                "_DEC_ABS",
+                "_BBS4_ZPR",
+                "_BNE_REL",
+                "_CMP_IZY",
+                "_CMP_IZP",
+                "_NOP_IMP",
+                "_NOP_ZPX",
+                "_CMP_ZPX",
+                "_DEC_ZPX",
+                "_SMB5_ZPG",
+                "_CLD_IMP",
+                "_CMP_ABY",
+                "_PHX_IMP",
+                "_STP_IMP",
+                "_NOP_ABS",
+                "_CMP_ABX",
+                "_DEC_ABX",
+                "_BBS5_ZPR",
+                "_CPX_IMM",
+                "_SBC_IZX",
+                "_NOP_IMM",
+                "_NOP_IMP",
+                "_CPX_ZPG",
+                "_SBC_ZPG",
+                "_INC_ZPG",
+                "_SMB6_ZPG",
+                "_INX_IMP",
+                "_SBC_IMM",
+                "_NOP_IMP",
+                "_NOP_IMP",
+                "_CPX_ABS",
+                "_SBC_ABS",
+                "_INC_ABS",
+                "_BBS6_ZPR",
+                "_BEQ_REL",
+                "_SBC_IZY",
+                "_SBC_IZP",
+                "_NOP_IMP",
+                "_NOP_ZPX",
+                "_SBC_ZPX",
+                "_INC_ZPX",
+                "_SMB7_ZPG",
+                "_SED_IMP",
+                "_SBC_ABY",
+                "_PLX_IMP",
+                "_NOP_IMP",
+                "_NOP_ABS",
+                "_SBC_ABX",
+                "_INC_ABX",
+                "_BBS7_ZPR"
         ).collect(Collectors.toCollection(ArrayList::new));
 
         Map<String, Integer> map = new HashMap<>();
@@ -1705,11 +1723,6 @@ class CodeGenerator {
                         }
 
                         switch (((ASTinstr) line).mode) {
-                            case IMM:
-                                if (size > 1)
-                                    throw new ParseException("Invalid parameter for immediate addressing (too large)",
-                                            offset);
-                                break;
                             case ABS:
                                 if (instExists(opcode.toString(), ASTinstr.AddrMode.REL))
                                     ((ASTinstr) line).mode = ASTinstr.AddrMode.REL;
@@ -1807,7 +1820,7 @@ class CodeGenerator {
                         ((ASTlabel) line).address = labelPc;
                     }
                     else if (line instanceof ASTsymbol) {
-//                        System.out.printf("%s: ($%04X)\n", ((ASTlabel) line).name, labelPc);
+                        System.out.printf("%s: ($%04X)\n", ((ASTsymbol) line).address, labelPc);
                         ((ASTsymbol) line).address = labelPc;
                     }
                     else if (line instanceof ASTdirec) {
@@ -1835,8 +1848,8 @@ class CodeGenerator {
                                             name.offset
                                     );
                                 }
-                                labelPc = args.get(0).calcValue(pc, scope, root).getInt();
-//                                System.out.printf("pc = %s\n", pc);
+                                labelPc = args.get(0).calcValue(labelPc, scope, root).getInt();
+//                                System.out.printf("labelPc = %04X\n", labelPc);
                             }
                             break;
                             case ".text": {
@@ -1869,6 +1882,7 @@ class CodeGenerator {
                                     }
                                     totalsize += 2;
                                 }
+                                if (totalsize == 0) totalsize = 2;
                                 labelPc += totalsize;
 //                                System.out.printf("pc + %d = $%04X\n", totalsize, pc);
                             }
@@ -1885,8 +1899,33 @@ class CodeGenerator {
                                     }
                                     totalsize++;
                                 }
+                                if (totalsize == 0) totalsize = 1;
                                 labelPc += totalsize;
 //                                System.out.printf("pc + %d = $%04X\n", totalsize, pc);
+                            }
+                            break;
+                            case ".data": {
+                                if (args.size() > 1) {
+                                    throw new ParseException(
+                                            "Too many arguments to directive .skip, 1 expected, found " + args.size(),
+                                            name.offset
+                                    );
+                                }
+                                if (!args.get(0).isConst(scope, root)) {
+                                    throw new ParseException(
+                                            "Expression must be constant in .skip directive",
+                                            name.offset
+                                    );
+                                }
+                                int size = args.get(0).calcSize(scope, root);
+                                if (size > 2) {
+                                    throw new ParseException(
+                                            "Invalid argument to directive .skip (too large)",
+                                            name.offset
+                                    );
+                                }
+                                labelPc += args.get(0).calcValue(pc, scope, root).getInt();
+//                                System.out.printf("pc = %s\n", pc);
                             }
                             break;
                         }
@@ -1940,8 +1979,14 @@ class CodeGenerator {
                         }
                         else {
                             int num = value.getInt();
-                            if (instr.mode == ASTinstr.AddrMode.ABS) {
-                                if (num < 256) {
+                            if (instr.mode == ASTinstr.AddrMode.IMM) {
+                                if (num >= 256) {
+                                    throw new ParseException("Invalid parameter for immediate addressing (too large)",
+                                            offset);
+                                }
+                            }
+                            else if (instr.mode == ASTinstr.AddrMode.ABS) {
+                                if (num < 256 && instExists(opcode.toString(), ASTinstr.AddrMode.ZPG)) {
                                     instr.mode = ASTinstr.AddrMode.ZPG;
                                     instr.size = 1;
                                     instr.param = new ASTop1(instr.param, ASTop1.ExpOp.LO);
@@ -2115,6 +2160,7 @@ class CodeGenerator {
 //                                    System.out.printf("%02X %02X ", value.getInt() & 0xFF, value.getInt() >>> 8);
                                     add(value.getInt() & 0xFF, value.getInt() >>> 8);
                                 }
+                                if (args.size() == 0) skip(2);
 //                                System.out.println();
 //                                System.out.printf("pc = $%04X\n",pc);
                             }
@@ -2133,7 +2179,13 @@ class CodeGenerator {
 //                                    System.out.printf("%02X ", value.getInt() & 0xFF);
                                     add(v & 0xFF);
                                 }
+                                if (args.size() == 0) skip(1);
 //                                System.out.println();
+//                                System.out.printf("pc = $%04X\n", pc);
+                            }
+                            break;
+                            case ".data": {
+                                skip(args.get(0).calcValue(pc, scope, root).getInt());
 //                                System.out.printf("pc = $%04X\n", pc);
                             }
                             break;
@@ -2147,13 +2199,22 @@ class CodeGenerator {
         return ram;
     }
 
-    public boolean instExists(String opcode, ASTinstr.AddrMode mode) {
+    public static boolean instExists(String opcode, ASTinstr.AddrMode mode) {
 //        System.out.printf("'%s' exists?\n", opcode + " " + mode);
-        return opcodes.containsKey(opcode.toLowerCase() + " " + mode);
+        return opcodes.containsKey("_" + opcode.toUpperCase() + "_" + mode);
+    }
+    
+    public static boolean instConstantExists(String constant) {
+//        System.out.printf("'%s' exists?\n", opcode + " " + mode);
+        return opcodes.containsKey(constant);
     }
 
-    public int getInstCode(String opcode, ASTinstr.AddrMode mode) {
-        return opcodes.get(opcode.toLowerCase() + " " + mode);
+    public static int getInstCode(String opcode, ASTinstr.AddrMode mode) {
+        return opcodes.get("_" + opcode.toUpperCase() + "_" + mode);
+    }
+
+    public static int getInstConstantCode(String constant) {
+        return opcodes.get(constant);
     }
 
     public void clearMemory() {
@@ -2185,64 +2246,9 @@ class CodeGenerator {
 }
 
 public class Assembler {
-//    public static void main(String[] args) {
-//        StringBuilder codeStr = new StringBuilder();
-//        try {
-//            FileReader f = new FileReader("D:\\Projects\\65C02java-master\\src\\sample\\test8Asm.s");
-//            while (true) {
-//                int c = f.read();
-//                if (c == -1) break;
-//                codeStr.append((char) c);
-//            }
-//            System.out.printf("File contents: {\n%s\n}\n", s);
-//        } catch (FileNotFoundException e) {
-//            System.out.println("oh shit bro, wrong file name.");
-//            e.printStackTrace();
-//            System.exit(-1);
-//        } catch (IOException e) {
-//            System.out.println("oh shit bro, couldn't read from file.");
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
-//        String code = codeStr.toString();
-//        try {
-//            int[] image = assemble(code);
-//            System.out.println("== RAM IMAGE ==");
-//            for (int i = 0x0600; i < 0x0700; i++) {
-//                if ((i & 0x0F) == 0)
-//                    System.out.printf("$%04X: ", i);
-//                System.out.printf("%02X ", image[i]);
-//                if ((i & 0x0F) == 0x0F)
-//                    System.out.println();
-//            }
-//        }
-//        catch (ParseException e) {
-//            System.out.println(Token.printLineError(code, e));
-//            e.printStackTrace();
-//        }
-//    }
 
     public static int[] assemble(String code) throws ParseException {
-//        StringBuilder codeStr = new StringBuilder();
-//        try {
-//            FileReader f = new FileReader("D:\\Projects\\65C02java-master\\src\\sample\\test4Asm.s");
-//            while (true) {
-//                int c = f.read();
-//                if (c == -1) break;
-//                codeStr.append((char) c);
-//            }
-//            System.out.printf("File contents: {\n%s\n}\n", s);
-//        } catch (FileNotFoundException e) {
-//            System.out.println("oh shit bro, wrong file name.");
-//            e.printStackTrace();
-//            System.exit(-1);
-//        } catch (IOException e) {
-//            System.out.println("oh shit bro, couldn't read from file.");
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
-//        String code = codeStr.toString();
-//        try {
+
         List<Token> tokens = Token.tokenise(code);
         Parser parser = new Parser(tokens);
 
@@ -2252,9 +2258,6 @@ public class Assembler {
 
         return generator.generate();
 
-//        }
-//        catch (ParseException e) {
-//            Token.printLineError(code, e);
-//        }
+
     }
 }
