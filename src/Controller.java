@@ -28,6 +28,7 @@ public class Controller implements Mapper {
 
     int monitorOffset = 0;
     boolean monitorChanged;
+    boolean monitorMoved;
     boolean screenChanged;
     File lastDir;
 
@@ -35,19 +36,17 @@ public class Controller implements Mapper {
 
     @Override
     public int read(int addr, boolean sync) {
-//        if (sync) readInstruction = true;
-//        System.out.println("bbb" + sync);
         return ram[addr] & 0xFF;
     }
 
     @Override
     public void write(int addr, int value) {
         ram[addr] = value & 0xFF;
-        if (addr >= 0x0200 && addr <= 0x05FF) {
+        if (addr >= 0x0400 && addr <= 0x07FF) {
 //            drawPixel(addr, value);
             screenChanged = true;
         }
-        if (addr >= monitorOffset && addr < monitorOffset + 0x100) {
+        if (showDisassembly.isSelected() || (addr >= monitorOffset && addr < monitorOffset + 0x100)) {
             monitorChanged = true;
         }
 
@@ -61,6 +60,7 @@ public class Controller implements Mapper {
     @FXML
     void initialize() {
         ram = new int[0x10000];
+
         for (int i = 0; i < 0x10000; i++) {
             ram[i] = 0;
         }
@@ -70,8 +70,8 @@ public class Controller implements Mapper {
 
         gc = screen.getGraphicsContext2D();
         gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, 480, 480);
-        gc.setFont(new Font(15));
+        gc.fillRect(0, 0, 512, 512);
+        gc.setFont(new Font("monospace", 14));
 
         loop = new AnimationTimer()
         {
@@ -81,6 +81,8 @@ public class Controller implements Mapper {
                     chip.setInterruptRequest(true);
                     irqCounter = (int) periodic.getValue();
                 }
+                monitorChanged = true;
+                monitorMoved = true;
                 if ((int) freq.getValue() == 1000) {
                     executeInstruction(0x10000);
                 }
@@ -110,23 +112,47 @@ public class Controller implements Mapper {
         });
 
         monitorSlider.valueProperty().addListener((observableValue, number, t1) -> {
-            monitorOffset = (0xFF0 - (int) monitorSlider.getValue()) << 4;
+            if (showDisassembly.isSelected()) {
+                if (monitorSlider.getValue() < 1) {
+                    monitorSlider.setValue(1);
+                }
+            }
+            else {
+                if (monitorSlider.getValue() < 256) {
+                    monitorSlider.setValue(256);
+                }
+            }
+            monitorOffset = 0x10000 - (int) monitorSlider.getValue();
             monitorChanged = true;
             updateMonitor();
         });
 
         showDisassembly.selectedProperty().addListener((observable, oldValue, newValue) -> {
-            monitorChanged = true;
+            if (newValue) {
+                monitorSlider.setBlockIncrement(1);
+                monitorSlider.setSnapToTicks(true);
+                if (monitorSlider.getValue() < 256) {
+                    monitorSlider.setValue(256);
+                }
+            }
+            else {
+                monitorSlider.setBlockIncrement(256);
+                monitorSlider.setSnapToTicks(true);
+            }
+            monitorOffset = 0x10000 - (int) monitorSlider.getValue();
+//            monitorChanged = true;
+            monitorMoved = true;
             updateMonitor();
         });
 
         screenChanged = false;
         monitorChanged = true;
+        monitorMoved = true;
         updateMonitor();
         lastDir = null;
 
         try {
-            FileInputStream properties = new FileInputStream("D:/65C02asm/state.properties");
+            FileInputStream properties = new FileInputStream("./res/state.properties");
             Properties p = new Properties();
             p.load(properties);
             String file = p.getProperty("currentfile");
@@ -139,7 +165,7 @@ public class Controller implements Mapper {
                 console.appendText("Error loading property 'currentfile'.\n");
             }
 
-            File autosave = new File("D:/65C02asm/tempcode.s");
+            File autosave = new File("./res/tempcode.s");
             loadFileToCode(autosave);
 
             if (caret != null) {
@@ -163,14 +189,15 @@ public class Controller implements Mapper {
 
     void onClose() {
         try {
-            FileOutputStream properties = new FileOutputStream("D:/65C02asm/state.properties");
+            FileOutputStream properties = new FileOutputStream("./res/state.properties");
             Properties p = new Properties();
-            p.setProperty("currentfile", lastDir.getAbsolutePath());
+            if (lastDir != null)
+                p.setProperty("currentfile", lastDir.getAbsolutePath());
             p.setProperty("caretposition", String.valueOf(codeEditor.getCaretPosition()));
             p.setProperty("scroll", String.valueOf(codeEditor.getScrollTop()));
             p.store(properties, "saved");
 
-            File autosave = new File("D:/65C02asm/tempcode.s");
+            File autosave = new File("./res/tempcode.s");
             saveFileFromCode(autosave);
         }
         catch (IOException e) {
@@ -179,56 +206,89 @@ public class Controller implements Mapper {
     }
 
     void drawPixel(int index, int value) {
+        int offset = index - 0x0400;
+        int x = offset % 32, y = offset / 32;
         value &= 0xFF;
-        int r = 0, g = 0, b = 0;
-        char c = ' ';
-        if (value < 8) {
-            r = ((value & 1) != 0)? 0x88: 0x00;
-            g = ((value & 2) != 0)? 0x88: 0x00;
-            b = ((value & 4) != 0)? 0x88: 0x00;
-        }
-        else if (value < 16) {
-            r = ((value & 1) != 0)? 0xCC: 0x00;
-            g = ((value & 2) != 0)? 0xCC: 0x00;
-            b = ((value & 4) != 0)? 0xCC: 0x00;
-        }
-        else if (value < 24) {
-            r = ((value & 1) != 0)? 0xFF: 0x88;
-            g = ((value & 2) != 0)? 0xFF: 0x88;
-            b = ((value & 4) != 0)? 0xFF: 0x88;
+
+        // int val;
+
+        // val = ((value >> 0) & 0b11) * 0x55;
+        // gc.setFill(Color.rgb(val, val, val));
+        // gc.fillRect(x * 16 + 0, y * 16 + 0, 8, 8);
+
+        // val = ((value >> 2) & 0b11) * 0x55;
+        // gc.setFill(Color.rgb(val, val, val));
+        // gc.fillRect(x * 16 + 8, y * 16 + 0, 8, 8);
+
+        // val = ((value >> 4) & 0b11) * 0x55;
+        // gc.setFill(Color.rgb(val, val, val));
+        // gc.fillRect(x * 16 + 0, y * 16 + 8, 8, 8);
+        
+        // val = ((value >> 6) & 0b11) * 0x55;
+        // gc.setFill(Color.rgb(val, val, val));
+        // gc.fillRect(x * 16 + 8, y * 16 + 8, 8, 8);
+
+        if (value < 16) {
+            int r = 0, g = 0, b = 0;
+            
+            if (value < 8) {
+                r = ((value & 1) != 0)? 0xAA: 0x00;
+                g = ((value & 2) != 0)? 0xAA: 0x00;
+                b = ((value & 4) != 0)? 0xAA: 0x00;
+            }
+            else if (value < 16) {
+                r = ((value & 1) != 0)? 0xFF: 0x55;
+                g = ((value & 2) != 0)? 0xFF: 0x55;
+                b = ((value & 4) != 0)? 0xFF: 0x55;
+            }
+
+            Paint colour = Color.rgb(r, g, b);
+            gc.setFill(colour);
+            gc.fillRect(x * 16, y * 16, 16, 16);
         }
         else if (value < 32) {
-            r = ((value & 1) != 0)? 0xFF: 0x44;
-            g = ((value & 2) != 0)? 0xFF: 0x44;
-            b = ((value & 4) != 0)? 0xFF: 0x44;
+            gc.setFill(Color.BLACK);
+            gc.fillRect(x * 16, y * 16, 16, 16);
+            
+            gc.setFill(Color.WHITE);
+            if ((value & 1) != 0)
+                gc.fillRect(x * 16 + 0, y * 16 + 0, 8, 8);
+            if ((value & 2) != 0)
+                gc.fillRect(x * 16 + 8, y * 16 + 0, 8, 8);
+            if ((value & 4) != 0)
+                gc.fillRect(x * 16 + 0, y * 16 + 8, 8, 8);
+            if ((value & 8) != 0)
+                gc.fillRect(x * 16 + 8, y * 16 + 8, 8, 8);
         }
         else if (value < 127) {
-            c = (char) value;
-        }
-        else if (value < 192) {
-            r = ((value) & 3) * 0x55;
-            g = ((value >> 2) & 3) * 0x55;
-            b = ((value >> 4) & 3) * 0x55;
+            char c = (char) value;
+
+            gc.setFill(Color.WHITE);
+            gc.fillText(c + "", x * 16 + 1, y * 16 + 12, 14);
         }
         else {
-            int greyscale = (value - 192) * 4;
-            r = greyscale;
-            g = greyscale;
-            b = greyscale;
+            int r = 0, g = 0, b = 0;
+            
+            if (value < 192) {
+                r = ((value) & 3) * 0x55;
+                g = ((value >> 2) & 3) * 0x55;
+                b = ((value >> 4) & 3) * 0x55;
+            }
+            else {
+                int greyscale = (value - 192) * 4;
+                r = greyscale;
+                g = greyscale;
+                b = greyscale;
+            }
+
+            Paint colour = Color.rgb(r, g, b);
+            gc.setFill(colour);
+            gc.fillRect(x * 16, y * 16, 16, 16);
         }
-        int offset = index - 0x0200;
-        int x = offset % 32, y = offset / 32;
-        Paint colour = Color.rgb(r, g, b);
-        gc.setFill(colour);
-        gc.fillRect(x * 15, y * 15, 15, 15);
-        gc.setFill(Color.WHITE);
-        gc.fillText(c + "", x * 15, y * 15 + 13, 15);
     }
 
     private void loadFileToCode(File file) {
         FileInputStream input;
-//        System.out.println("TEST");
-//        System.out.printf("File \"%s\"\n", file.toString());
         try {
             input = new FileInputStream(file);
             StringBuilder text = new StringBuilder();
@@ -237,26 +297,7 @@ public class Controller implements Mapper {
                 if (c == -1) break;
                 text.append((char) c);
             }
-//            String text = new String(input.readAllBytes());
-//            int linebreak = 0;
-//            while (true) {
-//                int b = 0;
-//                b = input.read();
-//                if (b == -1) break;
-//                String literal = String.format("%02X ", b);
-////                while (literal.length() < 2) {
-////                    final String lookup = "0123456789ABCDEF";
-////                    literal = lookup.charAt(b % 16) + literal;
-////                    b = b / 16;
-////                }
-////                System.out.printf("Number: %s\n", literal);
-//                if (linebreak > 7) {
-//                    text += "\n";
-//                    linebreak = 0;
-//                }
-//                linebreak++;
-//                text += literal;
-//            }
+
             console.setText(String.format("Text loaded from file \"%s\".\n", file));
             codeEditor.setText(text.toString());
             input.close();
@@ -273,17 +314,13 @@ public class Controller implements Mapper {
 
     private void saveFileFromCode(File file) {
         String code = codeEditor.getText();
-//        System.out.printf("Text:\n%s\n", code);
         FileOutputStream output;
         try {
             output = new FileOutputStream(file);
             output.write(code.getBytes());
-//            for (String s : strings) {
-//                output.write(Integer.parseInt(s.trim(), 16));
-////                System.out.printf("String parsed and written: \"%s\" result: %02X;\n", s.trim(), Integer.parseInt(s.trim(), 16));
-////                System.out.printf("result: \"%s\"\n", s.trim());
-//            }
+
             output.close();
+            console.setText(String.format("Text saved to file \"%s\".\n", file));
         }
         catch (IOException e) {
             console.setText(String.format("Error! File \"%s\" not found!", file));
@@ -322,7 +359,7 @@ public class Controller implements Mapper {
 //        String out = "+----------------------------------------------------------------+\n";
         if (!screenChanged) return;
         screenChanged = false;
-        for (int i = 0x0200; i < 0x0600; i++) {
+        for (int i = 0x0400; i < 0x0800; i++) {
             drawPixel(i, ram[i]);
         }
     }
@@ -372,6 +409,12 @@ public class Controller implements Mapper {
 
     @FXML
     private Button saveB;
+
+    @FXML
+    private Button saveAsB;
+
+    @FXML
+    private CheckBox loadAutomatically;
 
     @FXML
     private Button runB;
@@ -439,20 +482,29 @@ public class Controller implements Mapper {
 
     @FXML
     void loadImageToMemory(ActionEvent event) {
+        console.setText("");
+        if (loadAutomatically.isSelected() && lastDir != null) {
+            loadFileToCode(lastDir);
+        }
+
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, 320, 320);
 
         String code = codeEditor.getText();
         try {
             ram = Assembler.assemble(code);
-            console.setText("Assembly successful!\n");
+            console.appendText("Assembly successful!\n");
         }
         catch (ParseException e) {
-            console.setText(Token.printLineError(code, e));
+            console.appendText(Token.printLineError(code, e));
         }
         stopCode();
         resTrigger();
         screenChanged = true;
+        monitorChanged = true;
+        if (!showDisassembly.isSelected()) {
+            Disassembler.disassemble(chip, ram);
+        }
         updateMonitor();
         display();
         event.consume();
@@ -468,21 +520,27 @@ public class Controller implements Mapper {
     @FXML
     void stepCode() {
         chip.setReady(true);
+        monitorChanged = true;
+        monitorMoved = true;
         executeInstruction(1);
         state();
     }
 
     private void updateMonitor() {
-        if (!monitorChanged) return;
+        if (!monitorChanged && !monitorMoved) return;
         monitor.clear();
         if (showDisassembly.isSelected()) {
-            monitor.appendText("Work in progress.\n");
+//            monitor.appendText("Work in progress.\n");
+            if (monitorChanged) {
+                Disassembler.disassemble(chip, ram);
+                monitor.appendText(Disassembler.scroll(chip, ram, monitorOffset));
+            }
         }
         else {
             for (int i = 0; i < 0x10; i++) {
-                monitor.appendText(String.format("$%04X: ", (i << 4) + monitorOffset));
+                monitor.appendText(String.format("$%04X: ", (i << 4) + (monitorOffset & 0xFFF0)));
                 for (int j = 0; j < 0x10; j++) {
-                    monitor.appendText(String.format("%02X", ram[(i << 4 | j) + monitorOffset]));
+                    monitor.appendText(String.format("%02X", ram[(i << 4 | j) + (monitorOffset & 0xFFF0)]));
                     if (j < 0xf) {
                         monitor.appendText(" ");
                     }
@@ -492,6 +550,8 @@ public class Controller implements Mapper {
                 }
             }
         }
+        monitorChanged = false;
+        monitorMoved = false;
     }
 
     private void executeInstruction(int amount) {
@@ -515,9 +575,66 @@ public class Controller implements Mapper {
     }
 
     @FXML
+    void monitorArrowKey(KeyEvent event) {
+        switch (event.getCode()) {
+            case UP:
+            case PAGE_UP:
+                if (showDisassembly.isSelected()) {
+                    monitorSlider.setValue(monitorSlider.getValue() + 64);
+                }
+                else {
+                    monitorSlider.setValue(monitorSlider.getValue() + monitorSlider.getBlockIncrement());
+                }
+                break;
+            case DOWN:
+            case PAGE_DOWN:
+                if (showDisassembly.isSelected()) {
+                    monitorSlider.setValue(monitorSlider.getValue() - 64);
+                }
+                else {
+                    monitorSlider.setValue(monitorSlider.getValue() - monitorSlider.getBlockIncrement());
+                }
+                break;
+            case LEFT:
+                if (showDisassembly.isSelected()) {
+                    monitorSlider.setValue(monitorSlider.getValue() + 1);
+                }
+                else {
+                    monitorSlider.setValue(monitorSlider.getValue() + 16);
+                }
+                break;
+            case RIGHT:
+                if (showDisassembly.isSelected()) {
+                    monitorSlider.setValue(monitorSlider.getValue() - 1);
+                }
+                else {
+                    monitorSlider.setValue(monitorSlider.getValue() - 16);
+                }
+                break;
+            default:
+        }
+    }
+
+    @FXML
     void monitorScroll(ScrollEvent event) {
         double blocks = event.getDeltaY() * monitorSlider.getBlockIncrement() / event.getMultiplierY();
-        monitorSlider.setValue(monitorSlider.getValue() + blocks);
+        if (showDisassembly.isSelected()) {
+            monitorSlider.setValue(monitorSlider.getValue() + blocks * 4);
+        }
+        else {
+            monitorSlider.setValue(monitorSlider.getValue() + blocks);
+        }
+    }
+
+    @FXML
+    void scrollBarScrolled(ScrollEvent event) {
+        double blocks = event.getDeltaY() * monitorSlider.getBlockIncrement() / event.getMultiplierY();
+        if (showDisassembly.isSelected()) {
+            monitorSlider.setValue(monitorSlider.getValue() + blocks * 128);
+        }
+        else {
+            monitorSlider.setValue(monitorSlider.getValue() + blocks * 4);
+        }
     }
 
     @FXML
@@ -551,6 +668,7 @@ public class Controller implements Mapper {
     void keyPressed(KeyEvent event) {
 //        System.out.printf("KeyEvent: %s\n", event.toString());
         int c = event.getCharacter().charAt(0);
+        if (c == '\r') c = '\n';
         ram[0xFF] = c;
         console.appendText(String.format(
                 "Key code: %d\n", c
@@ -558,6 +676,8 @@ public class Controller implements Mapper {
         if (keyIRQ.isSelected()) {
             irqTrigger();
         }
+        monitorChanged = true;
+        updateMonitor();
     }
 
     @FXML
@@ -585,6 +705,18 @@ public class Controller implements Mapper {
 
     @FXML
     void saveFile(ActionEvent event) {
+        if (lastDir != null) {
+            saveFileFromCode(lastDir);
+        }
+        else {
+            saveAsFile(event);
+            return;
+        }
+        event.consume();
+    }
+
+    @FXML
+    void saveAsFile(ActionEvent event) {
         FileChooser fc = new FileChooser();
         fc.setTitle("Save the source code in assembly to a file");
         if (lastDir != null)
