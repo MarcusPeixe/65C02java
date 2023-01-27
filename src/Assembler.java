@@ -122,18 +122,15 @@ class Token {
 
     public static List<Token> tokenise(String s) throws ParseException {
         List<Token> tokens = new ArrayList<>();
-//        String completeRegex =
-//                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|,[xXyY]\\b|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
-//                        + "\\.?[\\w.]+:|\\.[\\w.]+|\\$[0-9a-fA-F]{1,4}\\b|\\b\\d+\\b|\\b[\\w.]+)";
         String completeRegex =
-                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
+                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|%[01_]+\\b|[()+\\-/*|&^#,=<>%~]|"
                         + "\\.?[\\w.]+:|\\.[\\w.]+|\\$[0-9a-fA-F]{1,4}\\b|\\b\\d+\\b|\\b[\\w.]+)";
         Pattern tokenPattern = Pattern.compile(completeRegex);
         Matcher tokeniser = tokenPattern.matcher(s);
         int anchor = 0;
         while (tokeniser.find()) {
             if (tokeniser.start() > anchor) {
-                System.out.println(tokeniser.group());
+//                System.out.println(tokeniser.group());
                 throw new ParseException("Garbage found", anchor);
             }
             anchor = tokeniser.end();
@@ -180,6 +177,9 @@ class Token {
 
             String replacement;
             switch (escape) {
+                case "\\b":
+                    replacement = "\b";
+                    break;
                 case "\\n":
                     replacement = "\n";
                     break;
@@ -300,7 +300,7 @@ class Token {
     }
 
     public boolean isOp() {
-        return Pattern.matches("[()+\\-/*|&^<>%]", value);
+        return Pattern.matches("[()+\\-/*|&^<>%~]", value);
     }
 
     public boolean isRegA() {
@@ -346,7 +346,7 @@ class Token {
         int offset = e.getErrorOffset();
 
         String completeRegex =
-                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|%[01_]+\\b|[()+\\-/*|&^#,=<>%]|"
+                "\\s*(;\\*(?:.|\n)*?\\*;|;.*|([\"'])(?:\\\\\"|\\\\'|.)+?\\2|%[01_]+\\b|[()+\\-/*|&^#,=<>%~]|"
                         + "\\.?[\\w.]+:|\\.[\\w.]+|\\$[0-9a-fA-F]{1,4}\\b|\\b\\d+\\b|\\b[\\w.]+)";
         Pattern tokenPattern = Pattern.compile(completeRegex);
         Matcher tokeniser = tokenPattern.matcher(s);
@@ -675,6 +675,7 @@ class ASTop0 extends ASTexp {
             return 2;
         }
         else if (root.symbols.containsKey(num.value)) {
+//            System.out.printf("symbol = %s (size %d)\n", num, root.symbols.get(num.value).size);
             return root.symbols.get(num.value).size;
         }
         else {
@@ -776,7 +777,7 @@ class ASTop0 extends ASTexp {
 
 class ASTop1 extends ASTexp {
     enum ExpOp {
-        PAR, NEG, LO, HI, LEN
+        PAR, COMP, NEG, LO, HI, LEN
     }
     ExpOp operation;
     ASTexp num;
@@ -792,6 +793,7 @@ class ASTop1 extends ASTexp {
             case PAR:
                 return opsize;
             case NEG:
+            case COMP:
                 if (opsize > 2)
                     throw new ParseException("Invalid operand for operation " + operation, getToken().offset);
                 else return opsize;
@@ -825,6 +827,8 @@ class ASTop1 extends ASTexp {
                     return value;
                 case NEG:
                     return new ExpVal(-(value.getInt()), calcSize(scope, root));
+                case COMP:
+                    return new ExpVal(~(value.getInt()), calcSize(scope, root));
                 case LO:
                     return new ExpVal(value.getInt() & 0xFF, calcSize(scope, root));
                 case HI:
@@ -852,6 +856,8 @@ class ASTop1 extends ASTexp {
                 return String.format("{(%s)}", num);
             case NEG:
                 return String.format("{-%s}", num);
+            case COMP:
+                return String.format("{~%s}", num);
             case LO:
                 return String.format("{<%s}", num);
             case HI:
@@ -886,6 +892,7 @@ class ASTop2 extends ASTexp {
     public int calcSize(ASTblock scope, ASTroot root) throws ParseException {
         int num1size = num1.calcSize(scope, root);
         int num2size = num2.calcSize(scope, root);
+        if (num1size * num2size == 0) return 0;
         if (operation == ExpOp.TWO) {
             if (num1size > 1)
                 throw new ParseException("Invalid zero page operand for Zero Page, Relative ", getToken().offset);
@@ -894,6 +901,7 @@ class ASTop2 extends ASTexp {
             return 2;
         }
         int totalsize = Math.max(num1size, num2size);
+//        System.out.printf("%s %s %s -> max %d %d -> %d\n", num1, operation, num2, num1size, num2size, totalsize);
         if (totalsize > 2 && operation != ExpOp.ADD)
             throw new ParseException("Invalid operand for operation " + operation, getToken().offset);
         else return totalsize;
@@ -1322,13 +1330,15 @@ class Parser {
         return e;
     }
 
-    public ASTexp parseExp6() throws ParseException { // NEG LO HI & NUM
-        if (peek().isIn("-<>#")) {
+    public ASTexp parseExp6() throws ParseException { // NEG LO HI NUM COMP
+        if (peek().isIn("-<>#~")) {
             Token op = peek();
             consume();
             ASTexp e = parseExp6();
             if (op.is('-'))
                 return new ASTop1(e, ASTop1.ExpOp.NEG);
+            else if (op.is('~'))
+                return new ASTop1(e, ASTop1.ExpOp.COMP);
             else if (op.is('<'))
                 return new ASTop1(e, ASTop1.ExpOp.LO);
             else if (op.is('>'))
@@ -1738,6 +1748,7 @@ class CodeGenerator {
 //                                            offset);
                                 break;
                             case ABX:
+//                                System.out.printf("%s %s,x; size: %d\n", opcode, ((ASTinstr) line).param, size);
                                 if (size == 1 && instExists(opcode.toString(), ASTinstr.AddrMode.ZPX))
                                     ((ASTinstr) line).mode = ASTinstr.AddrMode.ZPX;
                                 else if (size == 2
@@ -1782,6 +1793,8 @@ class CodeGenerator {
                                     // BB*b $XX,label
                                     size = 2;
                                 }
+                            default:
+                                break;
 
                         }
                         if (!instExists(opcode.toString(), ((ASTinstr) line).mode))
@@ -1820,7 +1833,7 @@ class CodeGenerator {
                         ((ASTlabel) line).address = labelPc;
                     }
                     else if (line instanceof ASTsymbol) {
-                        System.out.printf("%s: ($%04X)\n", ((ASTsymbol) line).address, labelPc);
+//                        System.out.printf("%s: ($%04X)\n", ((ASTsymbol) line).address, labelPc);
                         ((ASTsymbol) line).address = labelPc;
                     }
                     else if (line instanceof ASTdirec) {
@@ -1907,20 +1920,23 @@ class CodeGenerator {
                             case ".data": {
                                 if (args.size() > 1) {
                                     throw new ParseException(
-                                            "Too many arguments to directive .skip, 1 expected, found " + args.size(),
+                                            "Too many arguments to directive .data, 1 expected, found " + args.size(),
                                             name.offset
                                     );
                                 }
+                                if (args.size() == 0) {
+                                    break;
+                                }
                                 if (!args.get(0).isConst(scope, root)) {
                                     throw new ParseException(
-                                            "Expression must be constant in .skip directive",
+                                            "Expression must be constant in .data directive",
                                             name.offset
                                     );
                                 }
                                 int size = args.get(0).calcSize(scope, root);
                                 if (size > 2) {
                                     throw new ParseException(
-                                            "Invalid argument to directive .skip (too large)",
+                                            "Invalid argument to directive .data (too large)",
                                             name.offset
                                     );
                                 }
@@ -2185,6 +2201,9 @@ class CodeGenerator {
                             }
                             break;
                             case ".data": {
+                                if (args.size() == 0) {
+                                    break;
+                                }
                                 skip(args.get(0).calcValue(pc, scope, root).getInt());
 //                                System.out.printf("pc = $%04X\n", pc);
                             }
