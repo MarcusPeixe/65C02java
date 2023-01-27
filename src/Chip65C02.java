@@ -303,9 +303,6 @@ public class Chip65C02 {
 	static class AbIX implements AddressingMode {
 		@Override
 		public void calcAddress(Chip65C02 c) {
-			// int a1 = to8b(c.mapper.read(c.pc, false)) + c.x;
-			// c.incPC();
-
 			int a1 = to8b(c.mapper.read(c.pc, false));
 			c.incPC();
 			a1 |= toHI(c.mapper.read(c.pc, false));
@@ -1724,44 +1721,44 @@ public class Chip65C02 {
 	}
 
 	// Truncate values
-	public static int  to8b(int value) {
-		return value & 0x00FF;
+	public static int  to8b(int v) {
+		return v & 0x00FF;
 	}
 
-	public static int toU16b(int value) {
-		return value & 0xFFFF;
+	public static int toU16b(int v) {
+		return v & 0xFFFF;
 	}
 
-	public static int toS16b(int value) {
-		return (value & 0b1000_0000) != 0 ? (value | 0xFF00): (value);
+	public static int toS16b(int v) {
+		return (v & 0b1000_0000) != 0 ? (v | 0xFF00): (v);
 	}
 
-	public static int getHI(int value) {
-		return value & 0xFF00;
+	public static int getHI(int v) {
+		return v & 0xFF00;
 	}
 
-	public static int getHItoLO(int value) {
-		return (value & 0xFF00) >> 8;
+	public static int getHItoLO(int v) {
+		return (v & 0xFF00) >> 8;
 	}
 
-	public static int toHI(int value) {
-		return to8b(value) << 8;
+	public static int toHI(int v) {
+		return to8b(v) << 8;
 	}
 
-	public static int to4b(int value) {
-		return value & 0x0F;
+	public static int to4b(int v) {
+		return v & 0x0F;
 	}
 
-	public static int getMS(int value) {
-		return value & 0xF0;
+	public static int getMS(int v) {
+		return v & 0xF0;
 	}
 
-	public static int getMStoLS(int value) {
-		return (value & 0xF0) >> 4;
+	public static int getMStoLS(int v) {
+		return (v & 0xF0) >> 4;
 	}
 
-	public static int toMS(int value) {
-		return to8b(to4b(value) << 4);
+	public static int toMS(int v) {
+		return to8b(to4b(v) << 4);
 	}
 
 	// Print as binary
