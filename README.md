@@ -53,7 +53,97 @@ interface whose methods must be overridden for the emulator to work. You can
 implement your own graphical interface or other program to interact with the
 chip.
 
-## How to build:
+# How to use
+
+Every time a key is pressed, its ASCII code is stored in `$FF`, and if the
+"IRQ on key press" checkbox is checked, an Interrupt Request Signal is
+triggered.
+
+If the "Periodic IRQs" slider is set to a non-zero value, every N ticks an
+IRQ is triggered.
+
+To assign functions as interrupt handlers, put their labels/addresses at the
+corresponding memory locations:
+
+```
+$FFFA-$FFFB : Non Maskable Interrupt (NMI)
+$FFFC-$FFFD : Reset (RES)
+$FFFE-$FFFF : Interrupt Request (IRQ)
+```
+
+Example:
+
+```
+.org $FFFA
+.word NMI, RES, IRQ
+```
+
+To start generating new code at a specific address in memory, you can use the
+org directive `.org $xxxx`, where `$xxxx` is that address.
+
+Memory locations `$0400` to `$07FF` map to the screen pixels. Different values 
+will draw different colour/character pixels. The pixels are:
+
+```
+$00: Black
+$01: Dark Red
+$02: Dark Green
+$03: Dark Yellow
+$04: Dark Blue
+$05: Dark Purple
+$06: Dark Cyan
+$07: Light Gray
+
+$08: Dark Gray
+$09: Light Red
+$0A: Light Green
+$0B: Light Yellow
+$0C: Light Blue
+$0D: Light Purple
+$0E: Light Cyan
+$0F: White
+
+$10 - $1F: 2x2 Cell with black and white pixels
+
+$20 - $7F: ASCII table
+
+$80 - $BF: Colours (each RGB channel has a 2 bit depth, as in %10BBGGRR)
+$C0 - $FF: Greyscale 
+```
+
+To extract the low or high byte of a label's address, suffix it with &lt; or
+&gt; respectively. Example:
+
+```
+test_label:
+  lda #<test_label
+  sta $00
+  lda #>test_label
+  sta $01
+```
+
+You can also use the label name in expressions, and it evaluates to the
+address.
+
+You can use the syntax `SYMBOL = VALUE` to assign an expression to a constant.
+These constants can be used throughout your code.
+
+* `.byte value, value, ... value` is used to define constant bytes in memory.
+* `.word value, value, ... value` is used to define constant words (16-bit
+  integers) in memory.
+* `.text "Some text."` is used to define an array of ASCII characters in
+  memory.
+* `.string "Some text."` does the same but explicitly null-terminates the
+  string.
+* `.data offset` just skips _offset_ bytes forward. This is useful with labels.
+
+Number literal notations are either:
+
+- `123` for decimal
+- `$1234` for hex
+- `%10101010` for binary
+
+# How to build:
 
 You must have the java JDK and JRE installed. You can verify by running the
 following commands:
