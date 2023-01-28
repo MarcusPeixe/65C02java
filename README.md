@@ -78,11 +78,8 @@ Example:
 .word NMI, RES, IRQ
 ```
 
-To start generating new code at a specific address in memory, you can use the
-org directive `.org $xxxx`, where `$xxxx` is that address.
-
 Memory locations `$0400` to `$07FF` map to the screen pixels. Different values 
-will draw different colour/character pixels. The pixels are:
+will draw different colour/character pixels. The colours are:
 
 ```
 $00: Black
@@ -92,9 +89,9 @@ $03: Dark Yellow
 $04: Dark Blue
 $05: Dark Purple
 $06: Dark Cyan
-$07: Light Gray
+$07: Light Grey
 
-$08: Dark Gray
+$08: Dark Grey
 $09: Light Red
 $0A: Light Green
 $0B: Light Yellow
@@ -103,45 +100,135 @@ $0D: Light Purple
 $0E: Light Cyan
 $0F: White
 
-$10 - $1F: 2x2 Cell with black and white pixels
+$10 - $1F: 2x2 Cell with black and white pixels. The format is %0001_ABCD,
+where A, B, C, and D are the bits referring to each subpixel (0 is black
+and 1 is white).
 
-$20 - $7F: ASCII table
+$20 - $7F: ASCII character
 
-$80 - $BF: Colours (each RGB channel has a 2 bit depth, as in %10BBGGRR)
+$80 - $BF: Colours (each RGB channel has a 2 bit depth, as in %10_BBGGRR)
 $C0 - $FF: Greyscale 
 ```
 
-To extract the low or high byte of a label's address, suffix it with &lt; or
-&gt; respectively. Example:
+## Assembler syntax
 
-```
-test_label:
-  lda #<test_label
-  sta $00
-  lda #>test_label
-  sta $01
-```
+Single line comments begin at a `;` and go until the end of the line.
+Block comments are enclosed between `;*` and `*;`.
 
-You can also use the label name in expressions, and it evaluates to the
-address.
-
-You can use the syntax `SYMBOL = VALUE` to assign an expression to a constant.
-These constants can be used throughout your code.
-
-* `.byte value, value, ... value` is used to define constant bytes in memory.
-* `.word value, value, ... value` is used to define constant words (16-bit
-  integers) in memory.
-* `.text "Some text."` is used to define an array of ASCII characters in
-  memory.
-* `.string "Some text."` does the same but explicitly null-terminates the
-  string.
-* `.data offset` just skips _offset_ bytes forward. This is useful with labels.
-
-Number literal notations are either:
+Number literal notations are:
 
 - `123` for decimal
 - `$1234` for hex
 - `%10101010` for binary
+
+Strings must be enclosed in single or double quotes. The delimiter used
+must be escaped with a backslash if it appears within the string. The
+following escape sequences are recognised: `\b`, `\n`, `\r`, `\t`, `\e`,
+`\'`, `\"`, `\\`, `\0xNN`, `\0NNN`, and `\NNN` (N are digits in the
+appropriate base).
+
+The assembler directives are:
+- `.org ADDRESS` - Generates subsequent machine code at ADDRESS.
+- `.byte BYTE1, [...]` - Generates constant byte(s).
+- `.word WORD1, [...]` - Generates constant word(s). Each value is cast to a
+  word, and endianness is taken care of.
+- `.text TEXT` - Generates a constant string in memory.
+- `.string TEXT` - Generates a null-terminated constant string.
+- `.data SIZE` - Advances SIZE bytes, reserving space for data.
+
+You can define labels for branching by writing their name and ending it with
+a `:`. Other constants are defined by writing `NAME = VALUE`.
+
+Regular labels are referred to as global labels, and they define a "scope"
+until the next global label. If a label or constant begins with a dot `.`,
+then they are considered local to the scope they are defined in.
+
+Local symbols can be referred to in the scope they are defined by simply
+their name and the prefix dot (as in `.NAME`). They can also be referred to
+in other scopes by writing their full name `SCOPE.NAME` (where SCOPE is the
+name of the global label). The scope before the first global label is called
+`_root`.
+
+Everywhere a value is expected (as in instruction operands, directive
+arguments, and even definitions of constants), you can instead write an
+expression. They can evaluate to a byte, to a word, or even to a string
+(but they must respect the expected size in bytes for the value).
+
+Unary operations defined:
+- `~` - Complement
+- `-` - Negate
+- `<` - Low byte of a word
+- `>` - High byte of a word
+- `#` - Length of a string
+
+binary operations defined:
+- `+` - Add (or concatenate strings)
+- `-` - Subtract
+- `*` - Multiply
+- `/` - Divide
+- `&` - Bitwise AND
+- `|` - Bitwise OR
+- `^` - Bitwise XOR
+- `%` - Modulo
+
+Some constants are already defined in the format: _OP_ADDR (where OP is
+the mnemonic, and ADDR is the three-letter name for the addressing mode).
+They evaluate to the opcode of that instruction, if it exists with that 
+particular addressing mode.
+
+Branch instructions that are out of reach are automatically converted to
+a JMP instruction in machine code, as in:
+
+```
+  beq label
+```
+
+becomes effectively
+
+```
+  bne else
+  jmp label
+else:
+```
+
+## Examples
+
+Some examples are available in the `tests` folder included in this repo.
+But you can also try the following code:
+
+```
+screen  =  $0400
+code    =  $0800
+msg     =  "Hello, world!"
+size    =  #msg
+
+; This code writes hello
+; world to the screen.
+  .org code
+main:
+  ldx  #0
+
+.loop:
+  lda  txt, x
+  beq  .end
+  sta  screen, x
+  inx
+  bra  .loop
+
+.end:
+  stp
+
+txt:
+; Null terminated string
+  .string msg
+
+; Ignore interrupts
+irq: nmi:
+  rti
+
+  .org $fffa
+  .word nmi, main, irq
+```
 
 # How to build:
 
